@@ -122,6 +122,249 @@ def plot_dendrogram(linkage_matrix, labels):
     return fig
 
 
+def page_marketing():
+    st.header("Marketing — Segment Strategy")
+    st.caption("Why Workhorse + Traveler · Q2 research data")
+
+    SEGMENTS = ["Costcutter", "Innovator", "Mercedes", "Workhorse", "Traveler"]
+    CHOSEN    = ["Workhorse", "Traveler"]
+    COLORS    = {
+        "Costcutter": "#aec7e8", "Innovator": "#ffbb78",
+        "Mercedes": "#98df8a",   "Workhorse": "#1f77b4", "Traveler": "#ff7f0e",
+    }
+
+    # ── Raw data ──────────────────────────────────────────────────────────────
+    demand_raw = {
+        "City":        ["Los Angeles","Chicago","Toronto","Mexico City","Abu Dhabi","Accra","Cairo","Johannesburg","Santo Domingo","Santiago","Sao Paulo","Quito","Paris","Warsaw","Moscow","London","Tokyo","Mumbai","Shanghai","Sydney"],
+        "Region":      ["NORAM","NORAM","NORAM","NORAM","MEA","MEA","MEA","MEA","LATAM","LATAM","LATAM","LATAM","EUROPE","EUROPE","EUROPE","EUROPE","APAC","APAC","APAC","APAC"],
+        "Costcutter":  [3957,3364,4009,2412,2719,1283,1831,2283,1804,2204,2962,1448,4140,2398,3107,3371,2717,2421,2802,2760],
+        "Innovator":   [3342,3354,2060,1694,1351,375,909,1073,657,835,1393,536,2456,1527,2356,2495,3198,1525,2335,2363],
+        "Mercedes":    [2844,2913,2645,1460,1689,354,824,1108,798,801,1629,648,2702,1516,2123,2824,2672,1299,1273,1906],
+        "Workhorse":   [4355,3949,4139,2677,2982,1226,1625,2280,2118,2727,3252,1317,4377,2525,3482,4718,3036,2488,2206,3164],
+        "Traveler":    [3205,2873,2572,1610,1740,424,899,1287,725,948,1634,536,2967,1502,2156,2776,3450,1364,2201,1509],
+    }
+    demand = pd.DataFrame(demand_raw)
+
+    price_raw = {
+        "City":        ["Los Angeles","Chicago","Toronto","Mexico City","Abu Dhabi","Accra","Cairo","Johannesburg","Santo Domingo","Santiago","Sao Paulo","Quito","Paris","Warsaw","Moscow","London","Tokyo","Mumbai","Shanghai","Sydney"],
+        "Costcutter":  [2280.68,2183.47,2219.84,2257.45,1937.40,1930.84,2079.60,2074.01,1858.24,1968.45,1860.40,1864.84,2167.01,2168.13,2099.49,2188.95,2093.43,2092.25,2166.29,2195.55],
+        "Innovator":   [3835.30,3948.04,3652.88,3627.13,3367.14,3571.67,3609.37,3660.80,3365.87,3513.79,3382.41,3556.28,3621.89,3850.31,3576.98,3571.50,3461.67,3545.03,3445.23,3739.26],
+        "Mercedes":    [5089.38,5230.30,5145.75,4952.64,4485.65,4309.00,4583.87,4513.22,4327.46,4346.04,4427.52,4293.36,5004.84,5057.93,4690.35,4678.61,4892.28,4895.63,4498.03,4484.83],
+        "Workhorse":   [3333.72,3112.08,3345.69,3234.20,2690.17,2928.12,2809.87,2899.39,2673.32,2721.93,2883.97,2781.27,2959.12,3233.72,3049.45,3214.86,2863.45,3078.40,2995.64,3076.12],
+        "Traveler":    [3470.40,3706.02,3592.28,3763.82,3398.29,3151.87,3361.74,3194.58,3147.21,3168.05,3230.91,3342.65,3628.11,3575.03,3407.73,3470.26,3554.97,3510.43,3266.07,3492.74],
+    }
+    price = pd.DataFrame(price_raw)
+
+    needs_raw = {
+        "Need": [
+            "Portability", "LAN connectivity", "Can use on road", "Monitor easy on eyes",
+            "Reliability", "Slim design", "Courteous service", "High performance over price",
+            "Multiple programs", "Easy to set up", "Large-scale tasks", "Customizable",
+            "Fast processing", "Fast graphics", "Light weight", "Lowest price",
+            "Email capable", "Graphical detail", "Easy to use", "Live video",
+            "Financial stability", "Service everywhere", "Ultra fast", "Storage space",
+            "Competent sales", "Quick response", "Safe/secure", "Available locally",
+        ],
+        "Costcutter": [54,103,48,102,114,69,108,98,86,125,59,99,95,69,63,123,106,87,127,50,102,99,95,100,115,86,132,100],
+        "Innovator":  [100,123,76,109,115,113,108,125,123,93,117,121,124,129,105,93,113,112,101,117,102,102,122,117,83,120,114,92],
+        "Mercedes":   [76,129,94,116,123,104,117,127,127,105,125,111,128,130,101,89,114,129,99,111,124,122,129,121,114,126,109,113],
+        "Workhorse":  [83,115,85,120,119,107,112,111,101,114,107,107,109,109,94,120,109,92,122,116,109,115,101,112,105,104,124,118],
+        "Traveler":   [123,110,126,121,122,121,112,108,99,113,95,106,110,102,114,107,126,84,104,118,103,110,98,118,98,107,119,107],
+    }
+    needs = pd.DataFrame(needs_raw)
+
+    use_raw = {
+        "Application": [
+            "Communications","Presentations","Word Processing","Data management",
+            "Engineering/design","Bookkeeping/budgeting","Manufacturing control",
+            "Technical graphics","CAD/CAM","Business graphics","Statistical analysis",
+            "Web design","",
+        ],
+        "Costcutter": [112,103,125,109,73,114,69,70,38,93,59,69,0],
+        "Innovator":  [121,109,99,116,116,100,102,125,104,108,124,125,0],
+        "Mercedes":   [121,111,105,113,105,84,132,120,120,102,111,88,0],
+        "Workhorse":  [120,108,126,119,75,126,88,72,64,110,90,115,0],
+        "Traveler":   [124,131,122,109,89,101,72,63,33,114,68,58,0],
+    }
+    use_df = pd.DataFrame(use_raw)
+    use_df = use_df[use_df["Application"] != ""]
+
+    # ── Derived: revenue potential ────────────────────────────────────────────
+    rev_rows = []
+    for seg in SEGMENTS:
+        total_demand = demand[seg].sum()
+        avg_price    = price[seg].mean()
+        rev_rows.append(dict(Segment=seg, Demand=total_demand, Avg_Price=avg_price,
+                             Revenue_Potential=total_demand * avg_price,
+                             Chosen=seg in CHOSEN))
+    rev_df = pd.DataFrame(rev_rows).sort_values("Revenue_Potential", ascending=False)
+
+    # ── Section 1: Decision rationale KPIs ───────────────────────────────────
+    st.subheader("Why Workhorse + Traveler?")
+    c1, c2, c3, c4 = st.columns(4)
+    wh = rev_df[rev_df.Segment == "Workhorse"].iloc[0]
+    tr = rev_df[rev_df.Segment == "Traveler"].iloc[0]
+    c1.metric("Workhorse global demand", f"{int(wh.Demand):,} units", "Largest segment worldwide")
+    c2.metric("Workhorse revenue potential", f"${wh.Revenue_Potential/1e6:.1f}M", "#1 across all segments")
+    c3.metric("Traveler global demand", f"{int(tr.Demand):,} units", "#3 globally")
+    c4.metric("Traveler revenue potential", f"${tr.Revenue_Potential/1e6:.1f}M")
+
+    combined_rev = wh.Revenue_Potential + tr.Revenue_Potential
+    cc = rev_df[rev_df.Segment == "Costcutter"].iloc[0]
+    st.info(
+        f"**Combined WH + Traveler revenue potential: ${combined_rev/1e6:.1f}M** — "
+        f"more than any other two-segment combo that shares design overlap. "
+        f"Costcutter (${cc.Revenue_Potential/1e6:.1f}M potential) was rejected due to its "
+        f"lowest price ceiling (avg ${cc.Avg_Price:,.0f}) leaving almost no gross margin."
+    )
+
+    # ── Section 2: Segment comparison — demand + price ────────────────────────
+    st.markdown("---")
+    st.subheader("All Segments: Demand vs Revenue Potential")
+    col_a, col_b = st.columns(2)
+
+    with col_a:
+        fig_demand = px.bar(
+            rev_df.sort_values("Demand", ascending=True),
+            x="Demand", y="Segment", orientation="h",
+            color="Chosen",
+            color_discrete_map={True: "#1f77b4", False: "#c7c7c7"},
+            template="plotly_white",
+            title="Global 12-Month Demand by Segment",
+            labels={"Demand": "Units", "Chosen": "Chosen"},
+            text_auto=",d",
+        )
+        fig_demand.update_layout(showlegend=False)
+        st.plotly_chart(fig_demand, use_container_width=True)
+
+    with col_b:
+        fig_rev = px.bar(
+            rev_df.sort_values("Revenue_Potential", ascending=True),
+            x="Revenue_Potential", y="Segment", orientation="h",
+            color="Chosen",
+            color_discrete_map={True: "#ff7f0e", False: "#c7c7c7"},
+            template="plotly_white",
+            title="Revenue Potential (Demand × Avg Price Ceiling)",
+            labels={"Revenue_Potential": "$", "Chosen": "Chosen"},
+            text_auto="$,.0f",
+        )
+        fig_rev.update_layout(showlegend=False)
+        st.plotly_chart(fig_rev, use_container_width=True)
+
+    # ── Section 3: Avg price ceilings ────────────────────────────────────────
+    st.markdown("---")
+    st.subheader("Average Price Ceiling by Segment")
+    price_summary = rev_df[["Segment", "Avg_Price", "Chosen"]].sort_values("Avg_Price", ascending=True)
+    fig_price = px.bar(
+        price_summary, x="Avg_Price", y="Segment", orientation="h",
+        color="Chosen",
+        color_discrete_map={True: "#2ca02c", False: "#c7c7c7"},
+        template="plotly_white",
+        title="What customers will pay on average (global)",
+        labels={"Avg_Price": "Avg Price Ceiling ($)", "Chosen": "Chosen"},
+        text_auto="$,.0f",
+    )
+    fig_price.update_layout(showlegend=False)
+    st.plotly_chart(fig_price, use_container_width=True)
+    st.caption(
+        "Costcutter ($2,084 avg) leaves the least room for margin. "
+        "Mercedes ($4,695) has high price but requires expensive specs and has the smallest demand. "
+        "Workhorse and Traveler sit in the mid-market sweet spot."
+    )
+
+    # ── Section 4: Customer needs heatmap (all 5 segments) ───────────────────
+    st.markdown("---")
+    st.subheader("Customer Needs Heatmap — All Segments")
+    needs_pivot = needs.set_index("Need")[SEGMENTS]
+    fig_heat = px.imshow(
+        needs_pivot,
+        labels=dict(x="Segment", y="Need", color="Importance Score"),
+        aspect="auto",
+        color_continuous_scale="Blues",
+        template="plotly_white",
+        title="Customer Need Importance by Segment (higher = more important)",
+    )
+    fig_heat.update_xaxes(tickangle=0)
+    st.plotly_chart(fig_heat, use_container_width=True)
+
+    # ── Section 5: WH vs Traveler needs overlap ───────────────────────────────
+    st.markdown("---")
+    st.subheader("Workhorse vs Traveler — Needs Overlap")
+    st.caption("Scores above 110 are high priority for that segment.")
+
+    wh_t = needs[["Need", "Workhorse", "Traveler"]].copy()
+    wh_t["Overlap"] = wh_t[["Workhorse", "Traveler"]].min(axis=1)
+    wh_t["Difference"] = abs(wh_t["Workhorse"] - wh_t["Traveler"])
+    wh_t = wh_t.sort_values("Overlap", ascending=False)
+
+    fig_overlap = go.Figure()
+    fig_overlap.add_trace(go.Bar(
+        x=wh_t["Need"], y=wh_t["Workhorse"], name="Workhorse",
+        marker_color="#1f77b4", opacity=0.85,
+    ))
+    fig_overlap.add_trace(go.Bar(
+        x=wh_t["Need"], y=wh_t["Traveler"], name="Traveler",
+        marker_color="#ff7f0e", opacity=0.85,
+    ))
+    fig_overlap.add_hline(y=110, line_dash="dot", line_color="gray",
+                          annotation_text="High priority threshold (110)",
+                          annotation_position="right")
+    fig_overlap.update_layout(
+        barmode="group", template="plotly_white",
+        title="Shared needs mean one brand design can serve both segments",
+        xaxis_tickangle=-40, height=420,
+        legend=dict(orientation="h", yanchor="bottom", y=1.02),
+    )
+    st.plotly_chart(fig_overlap, use_container_width=True)
+
+    shared = wh_t[wh_t["Overlap"] >= 110]["Need"].tolist()
+    st.success(f"**{len(shared)} needs with score ≥ 110 in both segments:** {', '.join(shared)}")
+
+    # ── Section 6: Use pattern comparison ────────────────────────────────────
+    st.markdown("---")
+    st.subheader("How Each Segment Uses Their PC")
+    use_melt = use_df.melt(id_vars="Application", value_vars=SEGMENTS,
+                           var_name="Segment", value_name="Usage Score")
+    use_melt["Chosen"] = use_melt["Segment"].isin(CHOSEN)
+    fig_use = px.bar(
+        use_melt[use_melt["Segment"].isin(CHOSEN)],
+        x="Application", y="Usage Score", color="Segment",
+        barmode="group",
+        color_discrete_map={"Workhorse": "#1f77b4", "Traveler": "#ff7f0e"},
+        template="plotly_white",
+        title="Workhorse vs Traveler — PC Application Usage",
+        text_auto="d",
+    )
+    fig_use.update_layout(xaxis_tickangle=-35, height=400,
+                          legend=dict(orientation="h", yanchor="bottom", y=1.02))
+    st.plotly_chart(fig_use, use_container_width=True)
+    st.caption(
+        "Both segments prioritise Word Processing, Communications and Business Graphics. "
+        "Traveler is stronger on Presentations (131) and needs portability. "
+        "Workhorse leads on Data Management and Bookkeeping — typical office worker tasks."
+    )
+
+    # ── Section 7: Demand by city for chosen segments ────────────────────────
+    st.markdown("---")
+    st.subheader("Demand by City — Workhorse + Traveler")
+    city_df = demand[["City", "Region", "Workhorse", "Traveler"]].copy()
+    city_df["Combined"] = city_df["Workhorse"] + city_df["Traveler"]
+    city_df = city_df.sort_values("Combined", ascending=True)
+
+    fig_city = px.bar(
+        city_df.melt(id_vars=["City", "Region"], value_vars=["Workhorse", "Traveler"],
+                     var_name="Segment", value_name="Demand"),
+        x="Demand", y="City", color="Segment", orientation="h",
+        barmode="stack",
+        color_discrete_map={"Workhorse": "#1f77b4", "Traveler": "#ff7f0e"},
+        facet_col="Region", facet_col_wrap=3,
+        template="plotly_white",
+        title="12-Month Demand per City (stacked Workhorse + Traveler)",
+    )
+    fig_city.update_layout(height=600)
+    st.plotly_chart(fig_city, use_container_width=True)
+
+
 def page_finance():
     st.header("Finance — Q1 Actuals + Q2 Forecast")
     st.caption("Q1 data sourced from simulation exports · Q2 figures are planning inputs")
@@ -609,54 +852,9 @@ def main():
         return
 
     elif page == "Marketing":
-        st.header("Marketing")
-        st.write("Customer needs heatmap and sales office location map.")
-
-        if not cust.empty:
-            st.subheader("Customer Needs Heatmap")
-            try:
-                pivot = cust.pivot_table(index='Need', columns='segment', values='score', aggfunc='mean')
-                fig = px.imshow(pivot.fillna(0), labels=dict(x='Segment', y='Need', color='Score'), aspect='auto', title='Customer Needs by Segment')
-                st.plotly_chart(fig, use_container_width=True)
-            except Exception:
-                st.dataframe(cust)
-        else:
-            st.info("No customer needs data available. Normalize CustomerNeeds-Q2.xlsx.")
-
-        st.markdown("---")
-        st.subheader("Segment Similarity")
-        distance_matrix, linkage_matrix, ranked_pairs = build_segment_similarity(cust)
-        if distance_matrix is not None and linkage_matrix is not None and ranked_pairs is not None:
-            pivot = cust.pivot_table(index='Need', columns='segment', values='score', aggfunc='mean').fillna(0)
-            similarity_df = distance_matrix.round(2)
-            fig = px.imshow(
-                similarity_df,
-                labels=dict(x='Segment', y='Segment', color='Distance'),
-                aspect='auto',
-                title='Segment Distance Matrix'
-            )
-            st.plotly_chart(fig, use_container_width=True)
-
-            dendro_fig = plot_dendrogram(linkage_matrix, labels=pivot.T.index.tolist())
-            st.plotly_chart(dendro_fig, use_container_width=True)
-
-            st.write("Top similar segment pairs")
-            top_pairs = pd.DataFrame(ranked_pairs[:10], columns=['segment_a', 'segment_b', 'distance'])
-            st.dataframe(top_pairs)
-        else:
-            st.info("Not enough segment data to compute similarity.")
-
-        st.markdown("---")
-        st.subheader("Sales Office Map")
-        if not sales.empty:
-            fig = plot_city_map(sales, 'city', 'region_sheet', title='Sales Offices by Region')
-            if fig is not None:
-                st.plotly_chart(fig, use_container_width=True)
-            else:
-                st.info('No sales office cities could be geocoded.')
-            st.write(sales[['city', 'region_sheet', 'status', 'setup_close_cost', 'quarterly_lease_cost']].head(50))
-        else:
-            st.info("No sales office data available. Normalize OpenSalesOffice-Q2.xlsx.")
+        page_marketing()
+        conn.close()
+        return
 
     elif page == "Market Entry":
         page_market_entry()
