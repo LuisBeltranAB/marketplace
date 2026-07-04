@@ -1,0 +1,284 @@
+{
+  "main": {
+    "id": "8ff5682cdfae3799",
+    "type": "split",
+    "children": [
+      {
+        "id": "b443fec213d09ea2",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "86809dc9547fc2bb",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "Manual/Finance.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "Finance"
+            }
+          },
+          {
+            "id": "3f62005a925d8dc8",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "Financial reports/Cash flow Q1.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "Cash flow Q1"
+            }
+          },
+          {
+            "id": "5ca94da3a1c7533b",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "Financial reports/Income statement Q1.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "Income statement Q1"
+            }
+          }
+        ],
+        "currentTab": 2
+      },
+      {
+        "id": "e5f61aadd57cf56b",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "5d8812baeedd6b55",
+            "type": "leaf",
+            "state": {
+              "type": "graph",
+              "state": {},
+              "icon": "lucide-git-fork",
+              "title": "Graph view"
+            }
+          },
+          {
+            "id": "414f59959dce6f56",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "Manual/Costcutter.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "Costcutter"
+            }
+          },
+          {
+            "id": "f0691b33328e6fd1",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "Financial reports/Balance sheet Q1.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "Balance sheet Q1"
+            }
+          }
+        ],
+        "currentTab": 2
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "1a14830890e42a8a",
+    "type": "split",
+    "children": [
+      {
+        "id": "77fbde422cfdcce1",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "d8f9ecbcbc887d0c",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false
+              },
+              "icon": "lucide-folder-closed",
+              "title": "Files"
+            }
+          },
+          {
+            "id": "70e1c42757560ef4",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "Search"
+            }
+          },
+          {
+            "id": "2f640324494fa8d3",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "Bookmarks"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "ad60e2c217c22ab5",
+    "type": "split",
+    "children": [
+      {
+        "id": "83a57e3f5cfe57f9",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "4d9dc65ac204d951",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "Backlinks"
+            }
+          },
+          {
+            "id": "8bc6a7bd50598e4f",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "Outgoing links"
+            }
+          },
+          {
+            "id": "0e3676071d1531af",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "Tags"
+            }
+          },
+          {
+            "id": "9fa0162381e7858d",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "All properties"
+            }
+          },
+          {
+            "id": "b5063e5771061b41",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "Quarter decisions/Quarters.md",
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "Outline of Quarters"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:Open quick switcher": false,
+      "graph:Open graph view": false,
+      "canvas:Create new canvas": false,
+      "daily-notes:Open today's daily note": false,
+      "templates:Insert template": false,
+      "command-palette:Open command palette": false,
+      "bases:Create new base": false
+    }
+  },
+  "active": "d8f9ecbcbc887d0c",
+  "lastOpenFiles": [
+    "Financial reports/Balance sheet Q1.md",
+    "Manual/Costcutter.md",
+    "Financial reports/Income statement Q1.md",
+    "Financial reports/Cash flow Q1.md",
+    "Manual/Finance.md",
+    "Financial reports",
+    "images/investment timeline.png",
+    "Manual/Workhorse.md",
+    "Manual/Traveler.md",
+    "Manual/State of PC industry.md",
+    "Manual/Segments.md",
+    "Manual/Mercedes.md",
+    "Manual/Markets.md",
+    "Manual/Innovator.md",
+    "Quarter decisions/Quarter 1.md",
+    "Quarter decisions/Quarter 2.md",
+    "Manual",
+    "Quarter decisions",
+    "Quarter decisions/Quarters.md",
+    "images/segment graph.png",
+    "images",
+    "images/Market map.png",
+    "Welcome.md"
+  ]
+}

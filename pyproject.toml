@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "marketplace-assistant"
+version = "0.1.0"
+description = "Decision support app for the Marketplace simulation (MVP)"
+authors = ["Your Name <you@example.com>"]
+packages = [{include = "marketplace_assistant"}]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+pandas = "^2.2"
+duckdb = "^1.0"
+streamlit = "^1.20"
+pydantic = "^2.0"
+typer = "^0.9"
+plotly = "^5.15"
+polars = "^0.18"
+
+[tool.poetry.dev-dependencies]
+pytest = "^7.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
