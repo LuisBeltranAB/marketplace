@@ -128,9 +128,9 @@ def page_market_entry():
 
     # ── Raw data ──────────────────────────────────────────────────────────────
     cities = pd.DataFrame([
-        dict(City="Los Angeles",  Region="NORAM",  Workhorse=4355, Traveler=3205, WH_Price=3333.72, T_Price=3470.40, Setup=180000, Lease_Q=80000,  Open=True),
+        dict(City="Los Angeles",  Region="NORAM",  Workhorse=4355, Traveler=3205, WH_Price=3333.72, T_Price=3470.40, Setup=180000, Lease_Q=80000,  Open=False),
         dict(City="Chicago",      Region="NORAM",  Workhorse=3949, Traveler=2873, WH_Price=3112.08, T_Price=3706.02, Setup=170000, Lease_Q=74000,  Open=False),
-        dict(City="Toronto",      Region="NORAM",  Workhorse=4139, Traveler=2572, WH_Price=3345.69, T_Price=3592.28, Setup=160000, Lease_Q=70000,  Open=True),
+        dict(City="Toronto",      Region="NORAM",  Workhorse=4139, Traveler=2572, WH_Price=3345.69, T_Price=3592.28, Setup=160000, Lease_Q=70000,  Open=False),
         dict(City="Mexico City",  Region="NORAM",  Workhorse=2677, Traveler=1610, WH_Price=3234.20, T_Price=3763.82, Setup=120000, Lease_Q=56000,  Open=False),
         dict(City="Paris",        Region="EUROPE", Workhorse=4377, Traveler=2967, WH_Price=2959.12, T_Price=3628.11, Setup=180000, Lease_Q=75000,  Open=False),
         dict(City="Warsaw",       Region="EUROPE", Workhorse=2525, Traveler=1502, WH_Price=3233.72, T_Price=3575.03, Setup=110000, Lease_Q=46000,  Open=False),
@@ -189,12 +189,13 @@ def page_market_entry():
         st.metric("Avg Traveler price ceiling", f"${noram['Avg_T_Price']:,.0f}")
         st.metric(f"Revenue @ {mkt_share}% share", f"${noram['Revenue']:,.0f}")
         st.metric(f"Gross profit @ {avg_margin}% margin", f"${noram['Gross_Profit']:,.0f}")
-        st.metric("Annual office cost (new entries only)", f"${noram['Annual_Cost']:,.0f}")
+        st.metric("Annual office cost", f"${noram['Annual_Cost']:,.0f}")
+        net_delta = noram['Net_After_Costs'] - europe['Net_After_Costs']
         st.metric("Net after office costs", f"${noram['Net_After_Costs']:,.0f}",
-                  delta=f"${noram['Net_After_Costs'] - europe['Net_After_Costs']:,.0f} vs Europe")
+                  delta=f"${net_delta:,.0f} vs Europe", delta_color="normal")
         factory_city, factory_idx = factories["NORAM"]
         st.metric("Factory", f"{factory_city} — material index {factory_idx}")
-        st.success("LA + Toronto already open → $0 new setup cost for these cities")
+        st.info("No offices open yet — all costs reflect new entry")
 
     with col2:
         st.markdown("#### 🇪🇺 EUROPE")
@@ -203,7 +204,7 @@ def page_market_entry():
         st.metric("Avg Traveler price ceiling", f"${europe['Avg_T_Price']:,.0f}")
         st.metric(f"Revenue @ {mkt_share}% share", f"${europe['Revenue']:,.0f}")
         st.metric(f"Gross profit @ {avg_margin}% margin", f"${europe['Gross_Profit']:,.0f}")
-        st.metric("Annual office cost (all new entries)", f"${europe['Annual_Cost']:,.0f}")
+        st.metric("Annual office cost", f"${europe['Annual_Cost']:,.0f}")
         st.metric("Net after office costs", f"${europe['Net_After_Costs']:,.0f}")
         factory_city, factory_idx = factories["EUROPE"]
         st.metric("Factory", f"{factory_city} — material index {factory_idx}")
