@@ -122,6 +122,256 @@ def plot_dendrogram(linkage_matrix, labels):
     return fig
 
 
+def page_finance():
+    st.header("Finance — Q1 Actuals + Q2 Forecast")
+    st.caption("Q1 data sourced from simulation exports · Q2 figures are planning inputs")
+
+    # ── Q1 Actuals (hardcoded from BalanceSheet/IncomeStatement/CashFlow/CD Q1) ──
+    Q1 = dict(
+        cash=912_000,
+        cd_balance=0,
+        inventory=0,
+        net_fixed_assets=0,
+        sinking_fund=0,
+        total_assets=912_000,
+        conventional_loan=0,
+        long_term_loan=0,
+        emergency_loan=0,
+        common_stock=1_000_000,
+        retained_earnings=-88_000,
+        total_equity=912_000,
+        revenues=0,
+        cogs=0,
+        gross_profit=0,
+        market_research_expense=88_000,
+        total_expenses=88_000,
+        net_income=-88_000,
+        eps=-8.80,
+        shares_outstanding=10_000,
+        cd_rate_pct=1.5,
+    )
+
+    # ── Sidebar Q2 planning inputs ────────────────────────────────────────────
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("Q2 Financial Planning")
+
+    q2_stock_proceeds = st.sidebar.number_input(
+        "Stock proceeds Q2 ($)", 0, 5_000_000, 1_000_000, step=100_000,
+        help="Stock-Q2 shows 10,000 shares @ $100 already decided = $1,000,000"
+    )
+    q2_revenue = st.sidebar.number_input(
+        "Expected Q2 revenue ($)", 0, 20_000_000, 0, step=100_000,
+        help="Set once you've decided pricing and production volume"
+    )
+    q2_cogs_pct = st.sidebar.slider("COGS as % of revenue", 50, 90, 75)
+    q2_market_research = st.sidebar.number_input("Market research ($)", 0, 500_000, 88_000, step=1_000)
+    q2_advertising = st.sidebar.number_input("Advertising ($)", 0, 2_000_000, 0, step=50_000)
+    q2_rd = st.sidebar.number_input("R&D ($)", 0, 1_000_000, 0, step=50_000)
+    q2_sales_force = st.sidebar.number_input("Sales force expense ($)", 0, 500_000, 0, step=10_000)
+
+    factory_options = {
+        "None — no new capacity ($0)": 0,
+        "25 units/day — 1,625 units/qtr ($600K)": 600_000,
+        "50 units/day — 3,250 units/qtr ($1.1M)": 1_100_000,
+        "100 units/day — 6,500 units/qtr ($2.2M)": 2_200_000,
+        "150 units/day — 9,750 units/qtr ($3.6M)": 3_600_000,
+    }
+    factory_choice = st.sidebar.selectbox("Factory capacity investment", list(factory_options.keys()))
+    q2_factory_capex = factory_options[factory_choice]
+
+    office_options = {
+        "None": 0,
+        "LA only ($180K setup + $80K lease)": 260_000,
+        "Toronto only ($160K setup + $70K lease)": 230_000,
+        "LA + Toronto ($340K setup + $150K lease)": 490_000,
+        "LA + Chicago ($350K setup + $154K lease)": 504_000,
+        "Paris + London ($350K setup + $151K lease)": 501_000,
+        "Custom — enter below": -1,
+    }
+    office_choice = st.sidebar.selectbox("Office openings", list(office_options.keys()))
+    if office_options[office_choice] == -1:
+        q2_office_cost = st.sidebar.number_input("Custom office cost ($)", 0, 2_000_000, 0, step=10_000)
+    else:
+        q2_office_cost = office_options[office_choice]
+
+    q2_cd_deposit = st.sidebar.number_input(
+        "Invest in CD ($)", 0, 900_000, 0, step=50_000,
+        help=f"Earns {Q1['cd_rate_pct']}%/quarter. Must leave enough operating cash."
+    )
+    q2_borrow_lt = st.sidebar.number_input("Borrow long-term loan ($)", 0, 5_000_000, 0, step=100_000)
+
+    # ── Q2 Calculations ───────────────────────────────────────────────────────
+    q2_gross_profit = q2_revenue * (1 - q2_cogs_pct / 100)
+    q2_operating_expenses = (
+        q2_market_research + q2_advertising + q2_rd + q2_sales_force + q2_office_cost
+    )
+    q2_ebit = q2_gross_profit - q2_operating_expenses
+    q2_net_income = q2_ebit  # no taxes in early quarters (loss carry forward)
+    q2_cd_interest = q2_cd_deposit * (Q1["cd_rate_pct"] / 100)
+
+    cash_start = Q1["cash"]
+    cash_end = (
+        cash_start
+        + q2_stock_proceeds
+        + q2_revenue
+        - (q2_revenue * q2_cogs_pct / 100)
+        - q2_operating_expenses
+        - q2_factory_capex
+        - q2_cd_deposit
+        + q2_borrow_lt
+        + q2_cd_interest
+    )
+
+    q2_total_equity = Q1["common_stock"] + q2_stock_proceeds + Q1["retained_earnings"] + q2_net_income
+    q2_total_debt = Q1["conventional_loan"] + Q1["long_term_loan"] + q2_borrow_lt
+    debt_to_equity = q2_total_debt / q2_total_equity if q2_total_equity > 0 else float("inf")
+    emergency_loan_risk = cash_end < 0
+
+    # ── KPI Cards — Q1 Actuals ────────────────────────────────────────────────
+    st.subheader("Q1 Actuals")
+    c1, c2, c3, c4, c5 = st.columns(5)
+    c1.metric("Cash", f"${Q1['cash']:,.0f}")
+    c2.metric("Total Equity", f"${Q1['total_equity']:,.0f}")
+    c3.metric("Debt", f"${Q1['conventional_loan'] + Q1['long_term_loan']:,.0f}")
+    c4.metric("Net Income", f"${Q1['net_income']:,.0f}")
+    c5.metric("EPS", f"${Q1['eps']:.2f}")
+
+    c6, c7, c8, c9, c10 = st.columns(5)
+    c6.metric("Revenue", f"${Q1['revenues']:,.0f}")
+    c7.metric("Market Research", f"${Q1['market_research_expense']:,.0f}")
+    c8.metric("Shares Outstanding", f"{Q1['shares_outstanding']:,}")
+    c9.metric("CD Balance", f"${Q1['cd_balance']:,.0f}")
+    c10.metric("CD Rate", f"{Q1['cd_rate_pct']}% / qtr")
+
+    # ── Q2 Projected Cash Waterfall ───────────────────────────────────────────
+    st.markdown("---")
+    st.subheader("Q2 Cash Flow Projection")
+
+    waterfall_items = [
+        ("Q1 Cash",              cash_start,       "absolute"),
+        ("+ Stock proceeds",     q2_stock_proceeds,"relative"),
+        ("+ Revenue",            q2_revenue,       "relative"),
+        ("- COGS",               -(q2_revenue * q2_cogs_pct / 100), "relative"),
+        ("- Operating expenses", -q2_operating_expenses, "relative"),
+        ("- Factory CapEx",      -q2_factory_capex, "relative"),
+        ("- CD deposit",         -q2_cd_deposit,   "relative"),
+        ("+ Loans borrowed",     q2_borrow_lt,     "relative"),
+        ("+ CD interest",        q2_cd_interest,   "relative"),
+        ("Q2 Ending Cash",       cash_end,         "total"),
+    ]
+
+    wf_labels  = [r[0] for r in waterfall_items]
+    wf_values  = [r[1] for r in waterfall_items]
+    wf_measure = [r[2] for r in waterfall_items]
+    wf_colors  = ["#d62728" if v < 0 else "#2ca02c" for v in wf_values]
+    wf_colors[0]  = "#1f77b4"   # Q1 Cash — neutral
+    wf_colors[-1] = "#ff7f0e" if cash_end < 0 else "#1f77b4"  # ending cash
+
+    fig_wf = go.Figure(go.Waterfall(
+        orientation="v",
+        measure=wf_measure,
+        x=wf_labels,
+        y=wf_values,
+        connector=dict(line=dict(color="gray", dash="dot")),
+        increasing=dict(marker_color="#2ca02c"),
+        decreasing=dict(marker_color="#d62728"),
+        totals=dict(marker_color="#1f77b4"),
+        texttemplate="%{y:$,.0f}",
+        textposition="outside",
+    ))
+    fig_wf.add_hline(y=0, line_color="black", line_width=1)
+    fig_wf.update_layout(
+        template="plotly_white",
+        title="Q2 Cash Waterfall",
+        yaxis_title="$",
+        height=420,
+        showlegend=False,
+    )
+    st.plotly_chart(fig_wf, use_container_width=True)
+
+    # ── Q2 Ending KPIs ────────────────────────────────────────────────────────
+    st.subheader("Q2 Projected Outcome")
+    d1, d2, d3, d4, d5 = st.columns(5)
+    d1.metric("Projected Cash", f"${cash_end:,.0f}",
+              delta=f"{cash_end - cash_start:,.0f} vs Q1",
+              delta_color="normal")
+    d2.metric("Projected Net Income", f"${q2_net_income:,.0f}")
+    d3.metric("Projected Total Equity", f"${q2_total_equity:,.0f}")
+    d4.metric("Debt / Equity", f"{debt_to_equity:.2f}")
+    d5.metric("CD Interest earned", f"${q2_cd_interest:,.0f}")
+
+    if emergency_loan_risk:
+        st.error(
+            f"Emergency loan risk — projected cash is **${cash_end:,.0f}**. "
+            "Reduce spending or borrow before submitting Q2 decisions."
+        )
+    elif cash_end < 200_000:
+        st.warning(
+            f"Low cash buffer — **${cash_end:,.0f}** projected. "
+            "Consider borrowing a conventional loan or reducing CapEx."
+        )
+    else:
+        st.success(f"Cash position looks healthy: **${cash_end:,.0f}** projected at end of Q2.")
+
+    # ── CD Opportunity Analysis ───────────────────────────────────────────────
+    st.markdown("---")
+    st.subheader("Certificate of Deposit Opportunity")
+    st.caption(f"CD rate: {Q1['cd_rate_pct']}% per quarter (locked for 3 months)")
+
+    cd_amounts = [0, 50_000, 100_000, 200_000, 300_000, 400_000, 500_000]
+    cd_rows = []
+    for amt in cd_amounts:
+        interest = amt * Q1["cd_rate_pct"] / 100
+        residual_cash = cash_start + q2_stock_proceeds - q2_operating_expenses - q2_factory_capex - q2_office_cost - amt
+        cd_rows.append(dict(CD_Deposit=amt, Interest_Earned=interest,
+                            Residual_Cash=residual_cash, Safe=residual_cash > 0))
+    cd_df = pd.DataFrame(cd_rows)
+
+    fig_cd = px.bar(
+        cd_df, x="CD_Deposit", y="Interest_Earned",
+        color="Safe",
+        color_discrete_map={True: "#2ca02c", False: "#d62728"},
+        template="plotly_white",
+        title="CD Interest Earned vs. Amount Deposited (red = cash goes negative)",
+        labels={"CD_Deposit": "CD Deposit ($)", "Interest_Earned": "Interest Earned ($)", "Safe": "Cash positive?"},
+        text_auto="$,.0f",
+    )
+    st.plotly_chart(fig_cd, use_container_width=True)
+
+    # ── Payment to Business Partners ─────────────────────────────────────────
+    st.markdown("---")
+    st.subheader("Payment to Business Partners (Q1)")
+    partners = pd.DataFrame([
+        dict(Company="Apex Systems",        Amount=0),
+        dict(Company="AM2 Computers",       Amount=0),
+        dict(Company="Apex Global Systems", Amount=0),
+        dict(Company="KOVA",                Amount=0),
+    ])
+    st.dataframe(partners, use_container_width=True, height=180)
+    st.caption("All partner payments are $0 in Q1. Update when Q2 licensing decisions are made.")
+
+    # ── Planned Q2 outflows summary ───────────────────────────────────────────
+    st.markdown("---")
+    st.subheader("Q2 Planned Outflows Summary")
+    outflows = pd.DataFrame([
+        dict(Item="Market Research",      Amount=q2_market_research,     Type="Operating"),
+        dict(Item="Advertising",          Amount=q2_advertising,          Type="Operating"),
+        dict(Item="R&D",                  Amount=q2_rd,                   Type="Operating"),
+        dict(Item="Sales Force",          Amount=q2_sales_force,          Type="Operating"),
+        dict(Item="Office Costs",         Amount=q2_office_cost,          Type="Operating"),
+        dict(Item="Factory CapEx",        Amount=q2_factory_capex,        Type="Investing"),
+        dict(Item="CD Deposit",           Amount=q2_cd_deposit,           Type="Financing"),
+        dict(Item="COGS",                 Amount=int(q2_revenue * q2_cogs_pct / 100), Type="Operating"),
+    ])
+    outflows = outflows[outflows["Amount"] > 0]
+    if not outflows.empty:
+        fig_out = px.pie(outflows, names="Item", values="Amount", color="Type",
+                         template="plotly_white", title="Q2 Spend Breakdown")
+        st.plotly_chart(fig_out, use_container_width=True)
+    else:
+        st.info("Adjust the sidebar inputs to model Q2 spending.")
+
+
 def page_market_entry():
     st.header("Market Entry — NORAM vs Europe")
     st.caption("Workhorse + Traveler segments · Q2 research data")
@@ -354,31 +604,9 @@ def main():
     factory = load_table(conn, "factory_location")
 
     if page == "Finance":
-        st.header("Finance")
-        st.write("This section shows the raw financial tables and trends.")
-
-        if not income_df.empty:
-            st.subheader("Income Statement")
-            st.dataframe(income_df)
-            st.subheader("Income trends")
-            cols_to_plot = [c for c in ["sales", "net_income"] if c in income_df.columns]
-            if cols_to_plot:
-                fig = px.line(income_df, x="quarter", y=cols_to_plot, markers=True)
-                st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.info("No income statement data available. Run `normalize-csv` on your exports.")
-
-        if not bs_df.empty:
-            st.subheader("Balance Sheet")
-            st.dataframe(bs_df)
-        else:
-            st.info("No balance sheet data available.")
-
-        if not cf_df.empty:
-            st.subheader("Cash Flow")
-            st.dataframe(cf_df)
-        else:
-            st.info("No cash flow data available.")
+        page_finance()
+        conn.close()
+        return
 
     elif page == "Marketing":
         st.header("Marketing")
