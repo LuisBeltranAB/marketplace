@@ -127,9 +127,10 @@ _FACTORY_IMG_EUROPE = "iVBORw0KGgoAAAANSUhEUgAAAlgAAAFFCAYAAAAwxpMEAAAAAXNSR0IAr
 
 def page_brands_pricing():
     st.header("Brands & Pricing — X1 and X2")
-    st.caption("Component specs from ModifyBrand-Q2.xlsx · adjust cost inputs to match simulation values")
 
-    # ── Brand component specs (from ModifyBrand-Q2.xlsx) ─────────────────────
+    tab_q3, tab_q2 = st.tabs(["🔵 Q3 — Real Costs", "🗂 Q2 — Archive (Estimates)"])
+
+    # ── Shared brand specs ────────────────────────────────────────────────────
     X1_COMPONENTS = {
         "Essentials":        "Base components",
         "Case":              "Standard (desktop)",
@@ -228,179 +229,274 @@ def page_brands_pricing():
     shipping = {"Los Angeles": ship_la, "Toronto": ship_tor,
                 "Chicago": ship_chi, "Mexico City": ship_cdmx}
 
-    # ── Section 1: Brand comparison cards ────────────────────────────────────
-    st.subheader("Brand Comparison")
-    col1, col2 = st.columns(2)
+    # ── Real production costs from CostOfProduction-Q3.xlsx ─────────────────
+    COST_CURVE = {100: (4288.26, 4262.53), 250: (2849.10, 2823.40),
+                  500: (2129.89, 2104.23), 1000: (1768.94, 1743.36), 5000: (1471.50, 1446.57)}
 
-    def brand_card(col, name, brand_type, segment, components, mfg_cost, avg_ceil):
-        with col:
-            st.markdown(f"### {name} — {brand_type.title()}")
-            st.markdown(f"**Target segment:** {segment}")
-            st.metric("Manufacturing cost (excl. shipping)", f"${mfg_cost:,}")
-            st.metric("Avg price ceiling (NORAM)", f"${avg_ceil:,.0f}")
-            max_margin = (avg_ceil - mfg_cost) / avg_ceil * 100 if avg_ceil > 0 else 0
-            st.metric("Max gross margin at ceiling price", f"{max_margin:.1f}%")
-            with st.expander("Component spec"):
-                for grp, spec in components.items():
-                    st.write(f"• **{grp}**: {spec}")
+    def interp_cost(units, idx):
+        pts = sorted(COST_CURVE.keys())
+        if units <= pts[0]:  return COST_CURVE[pts[0]][idx]
+        if units >= pts[-1]: return COST_CURVE[pts[-1]][idx]
+        for i in range(len(pts)-1):
+            if pts[i] <= units <= pts[i+1]:
+                lo, hi = pts[i], pts[i+1]
+                t = (units - lo) / (hi - lo)
+                return COST_CURVE[lo][idx] + t * (COST_CURVE[hi][idx] - COST_CURVE[lo][idx])
+        return COST_CURVE[pts[-1]][idx]
 
-    avg_wh = sum(WH_PRICE_CEIL.values()) / len(WH_PRICE_CEIL)
-    avg_t  = sum(T_PRICE_CEIL.values())  / len(T_PRICE_CEIL)
-    brand_card(col1, "X1", "desktop", "Workhorse", X1_COMPONENTS, x1_mfg, avg_wh)
-    brand_card(col2, "X2", "laptop",  "Traveler",  X2_COMPONENTS, x2_mfg, avg_t)
+    WH_PRICE_CEIL = {"Los Angeles": 3333.72, "Toronto": 3345.69}
+    T_PRICE_CEIL  = {"Los Angeles": 3470.40, "Toronto": 3592.28}
 
-    # ── Section 2: Component cost breakdown ───────────────────────────────────
-    st.markdown("---")
-    st.subheader("Component Cost Breakdown")
-    comp_rows = []
-    all_keys = sorted(set(list(x1_costs.keys()) + list(x2_costs.keys())))
-    for k in all_keys:
-        comp_rows.append(dict(Component=k, X1=x1_costs.get(k, 0), X2=x2_costs.get(k, 0)))
-    comp_df = pd.DataFrame(comp_rows)
-    comp_melt = comp_df.melt(id_vars="Component", value_vars=["X1","X2"],
-                              var_name="Brand", value_name="Cost")
-    comp_melt = comp_melt[comp_melt["Cost"] > 0]
+    # ── Sidebar ───────────────────────────────────────────────────────────────
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("Brands & Pricing — Q3")
+    q3_units_x1 = st.sidebar.number_input("X1 units to produce", 0, 1625, 250, step=25, key="bp_x1")
+    q3_units_x2 = st.sidebar.number_input("X2 units to produce", 0, 1625, 250, step=25, key="bp_x2")
+    q3_price_x1 = st.sidebar.number_input("X1 selling price ($)", 1000, 4000, 2750, step=50, key="bp_px1")
+    q3_price_x2 = st.sidebar.number_input("X2 selling price ($)", 1000, 4500, 3100, step=50, key="bp_px2")
 
-    fig_comp = px.bar(
-        comp_melt, x="Component", y="Cost", color="Brand", barmode="group",
-        color_discrete_map={"X1": "#1f77b4", "X2": "#ff7f0e"},
-        template="plotly_white",
-        title="Cost per Component Group — X1 vs X2",
-        text_auto="$,d",
-    )
-    fig_comp.update_layout(xaxis_tickangle=-35, height=380)
-    st.plotly_chart(fig_comp, use_container_width=True)
-    st.caption(f"X1 total base: **${x1_base:,}** → after material index ({mat_index}): **${x1_mfg:,}** &nbsp;|&nbsp; "
-               f"X2 total base: **${x2_base:,}** → after material index: **${x2_mfg:,}**",
-               unsafe_allow_html=True)
+    cost_x1 = interp_cost(q3_units_x1, 0) if q3_units_x1 > 0 else 0
+    cost_x2 = interp_cost(q3_units_x2, 1) if q3_units_x2 > 0 else 0
+    margin_x1 = (q3_price_x1 - cost_x1) / q3_price_x1 * 100 if q3_price_x1 > cost_x1 > 0 else 0
+    margin_x2 = (q3_price_x2 - cost_x2) / q3_price_x2 * 100 if q3_price_x2 > cost_x2 > 0 else 0
 
-    # ── Section 3: Total landed cost per city (mfg + shipping) ───────────────
-    st.markdown("---")
-    st.subheader("Total Landed Cost per City (Manufacturing + Shipping)")
+    # ═══════════════════════════════════════════════════════════════════════════
+    with tab_q3:
+        st.caption("Real unit costs from CostOfProduction-Q3.xlsx — overhead drops sharply with volume")
 
-    landed_rows = []
-    for city, ship in shipping.items():
-        wh_ceil = WH_PRICE_CEIL[city]
-        t_ceil  = T_PRICE_CEIL[city]
-        x1_land = x1_mfg + ship
-        x2_land = x2_mfg + ship
-        landed_rows.append(dict(
-            City=city,
-            X1_Mfg=x1_mfg, X1_Ship=ship, X1_Landed=x1_land,
-            X2_Mfg=x2_mfg, X2_Ship=ship, X2_Landed=x2_land,
-            WH_Ceiling=wh_ceil, T_Ceiling=t_ceil,
-            X1_Headroom=wh_ceil - x1_land,
-            X2_Headroom=t_ceil  - x2_land,
-        ))
-    landed = pd.DataFrame(landed_rows)
+        # KPI cards
+        k1, k2, k3, k4 = st.columns(4)
+        k1.metric("X1 cost/unit", f"${cost_x1:,.0f}" if q3_units_x1 > 0 else "—",
+                  delta=f"at {q3_units_x1} units")
+        k2.metric("X1 gross margin", f"{margin_x1:.1f}%" if q3_units_x1 > 0 else "—",
+                  delta="at set price", delta_color="normal")
+        k3.metric("X2 cost/unit", f"${cost_x2:,.0f}" if q3_units_x2 > 0 else "—",
+                  delta=f"at {q3_units_x2} units")
+        k4.metric("X2 gross margin", f"{margin_x2:.1f}%" if q3_units_x2 > 0 else "—",
+                  delta="at set price", delta_color="normal")
 
-    fig_land = go.Figure()
-    fig_land.add_trace(go.Bar(x=landed["City"], y=landed["X1_Mfg"],
-                              name="X1 Manufacturing", marker_color="#1f77b4"))
-    fig_land.add_trace(go.Bar(x=landed["City"], y=landed["X1_Ship"],
-                              name="X1 Shipping", marker_color="#aec7e8"))
-    fig_land.add_trace(go.Bar(x=landed["City"], y=landed["X2_Mfg"],
-                              name="X2 Manufacturing", marker_color="#ff7f0e"))
-    fig_land.add_trace(go.Bar(x=landed["City"], y=landed["X2_Ship"],
-                              name="X2 Shipping", marker_color="#ffbb78"))
-    # Price ceiling lines
-    fig_land.add_trace(go.Scatter(x=landed["City"], y=landed["WH_Ceiling"],
-                                  mode="lines+markers", name="WH Price Ceiling",
-                                  line=dict(color="#1f77b4", dash="dot"), marker_size=8))
-    fig_land.add_trace(go.Scatter(x=landed["City"], y=landed["T_Ceiling"],
-                                  mode="lines+markers", name="Traveler Price Ceiling",
-                                  line=dict(color="#ff7f0e", dash="dot"), marker_size=8))
-    fig_land.update_layout(
-        barmode="group", template="plotly_white",
-        title="Landed Cost vs Price Ceiling per City",
-        yaxis_title="$ per unit", height=420,
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0),
-    )
-    st.plotly_chart(fig_land, use_container_width=True)
+        if q3_units_x1 > 0 and margin_x1 < 0:
+            st.error(f"X1 is selling BELOW cost at ${q3_price_x1:,} — minimum price to break even: ${cost_x1:,.0f}")
+        if q3_units_x2 > 0 and margin_x2 < 0:
+            st.error(f"X2 is selling BELOW cost at ${q3_price_x2:,} — minimum price to break even: ${cost_x2:,.0f}")
 
-    # ── Section 4: Pricing recommendations ───────────────────────────────────
-    st.markdown("---")
-    st.subheader("Pricing Recommendations")
-    st.caption("Rule of thumb: price at 80–90% of the customer price ceiling to stay competitive while leaving margin.")
+        # Real cost curve
+        st.markdown("---")
+        st.subheader("Real Production Cost Curve")
+        curve_rows = []
+        for vol in [100, 150, 200, 250, 300, 400, 500, 750, 1000, 1250, 1625]:
+            cx1 = interp_cost(vol, 0)
+            cx2 = interp_cost(vol, 1)
+            curve_rows.append(dict(Units=vol, X1=cx1, X2=cx2,
+                                   X1_Margin=(q3_price_x1 - cx1)/q3_price_x1*100 if q3_price_x1 > 0 else 0,
+                                   X2_Margin=(q3_price_x2 - cx2)/q3_price_x2*100 if q3_price_x2 > 0 else 0))
+        curve_df = pd.DataFrame(curve_rows)
 
-    for _, row in landed.iterrows():
-        city = row["City"]
-        c1, c2, c3, c4 = st.columns(4)
-        c1.markdown(f"**{city}**")
+        fig_c, fig_m = st.columns(2)
+        with fig_c:
+            fc = px.line(curve_df, x="Units", y=["X1","X2"],
+                         template="plotly_white", title="Cost Per Unit vs Volume",
+                         labels={"Units":"Units/qtr","value":"$/unit","variable":"Brand"},
+                         color_discrete_map={"X1":"#1f77b4","X2":"#ff7f0e"})
+            fc.add_hline(y=q3_price_x1, line_dash="dot", line_color="#1f77b4",
+                         annotation_text=f"X1 price ${q3_price_x1:,}")
+            fc.add_hline(y=q3_price_x2, line_dash="dot", line_color="#ff7f0e",
+                         annotation_text=f"X2 price ${q3_price_x2:,}")
+            if q3_units_x1 > 0:
+                fc.add_vline(x=q3_units_x1, line_dash="dash", line_color="#1f77b4",
+                             annotation_text=f"X1 {q3_units_x1}u")
+            if q3_units_x2 > 0:
+                fc.add_vline(x=q3_units_x2, line_dash="dash", line_color="#ff7f0e",
+                             annotation_text=f"X2 {q3_units_x2}u")
+            st.plotly_chart(fc, use_container_width=True)
 
-        for brand, landed_cost, ceiling, col_a, col_b in [
-            ("X1 (WH)", row.X1_Landed, row.WH_Ceiling, c2, c3),
-            ("X2 (T)",  row.X2_Landed, row.T_Ceiling,  c4, None),
-        ]:
-            rec_price = round(ceiling * 0.85 / 50) * 50   # round to nearest $50
-            margin = (rec_price - landed_cost) / rec_price * 100 if rec_price > 0 else 0
-            headroom = ceiling - landed_cost
-            delta_color = "normal" if margin > 15 else "inverse"
-            col_a.metric(
-                f"{brand} rec. price",
-                f"${rec_price:,.0f}",
-                f"{margin:.0f}% margin | ${headroom:,.0f} headroom",
-                delta_color=delta_color,
-            )
+        with fig_m:
+            fm = px.line(curve_df, x="Units", y=["X1_Margin","X2_Margin"],
+                         template="plotly_white", title="Gross Margin % vs Volume",
+                         labels={"Units":"Units/qtr","value":"Margin %","variable":"Brand"},
+                         color_discrete_map={"X1_Margin":"#1f77b4","X2_Margin":"#ff7f0e"})
+            fm.add_hline(y=20, line_dash="dash", line_color="gray", annotation_text="20% floor")
+            fm.add_hline(y=0, line_color="red")
+            if q3_units_x1 > 0:
+                fm.add_vline(x=q3_units_x1, line_dash="dash", line_color="#1f77b4")
+            if q3_units_x2 > 0:
+                fm.add_vline(x=q3_units_x2, line_dash="dash", line_color="#ff7f0e")
+            st.plotly_chart(fm, use_container_width=True)
 
-    # ── Section 5: Margin sweep ───────────────────────────────────────────────
-    st.markdown("---")
-    st.subheader("Gross Margin at Different Price Points")
-    la_x1_land = x1_mfg + ship_la
-    la_x2_land = x2_mfg + ship_la
+        # Pricing recommendation table
+        st.markdown("---")
+        st.subheader("Pricing Recommendations — LA + Toronto")
+        rec_rows = []
+        for city, wh_c, t_c in [("Los Angeles", WH_PRICE_CEIL["Los Angeles"], T_PRICE_CEIL["Los Angeles"]),
+                                  ("Toronto",    WH_PRICE_CEIL["Toronto"],     T_PRICE_CEIL["Toronto"])]:
+            for brand, cost, ceil_, units in [("X1",cost_x1,wh_c,q3_units_x1),
+                                               ("X2",cost_x2,t_c, q3_units_x2)]:
+                if units == 0: continue
+                rec = round(ceil_ * 0.85 / 50) * 50
+                margin = (rec - cost) / rec * 100 if rec > 0 else 0
+                rec_rows.append(dict(City=city, Brand=brand, Cost_Per_Unit=cost,
+                                     Price_Ceiling=ceil_, Rec_Price=rec,
+                                     Gross_Margin_Pct=margin, Headroom=ceil_-cost))
+        if rec_rows:
+            rec_df = pd.DataFrame(rec_rows)
+            st.dataframe(rec_df.style.format({
+                "Cost_Per_Unit":"${:,.0f}","Price_Ceiling":"${:,.0f}",
+                "Rec_Price":"${:,.0f}","Gross_Margin_Pct":"{:.1f}%","Headroom":"${:,.0f}"
+            }), use_container_width=True, hide_index=True)
 
-    price_range = list(range(1500, 4200, 50))
-    sweep_rows = []
-    for p in price_range:
-        sweep_rows.append(dict(
-            Price=p,
-            X1_Margin=(p - la_x1_land) / p * 100 if p > la_x1_land else 0,
-            X2_Margin=(p - la_x2_land) / p * 100 if p > la_x2_land else 0,
-        ))
-    sweep = pd.DataFrame(sweep_rows)
+        # Breakeven volume
+        st.markdown("---")
+        st.subheader("Minimum Volume to Achieve 20% Margin at Set Price")
+        for brand, idx, price in [("X1", 0, q3_price_x1), ("X2", 1, q3_price_x2)]:
+            for vol in range(100, 1626, 25):
+                c = interp_cost(vol, idx)
+                if price > 0 and (price - c) / price >= 0.20:
+                    st.info(f"**{brand}** at ${price:,}: need at least **{vol} units/quarter** for ≥20% margin (cost = ${c:,.0f}/unit)")
+                    break
+            else:
+                st.warning(f"**{brand}** at ${price:,}: cannot reach 20% margin at any volume within 1,625 unit capacity")
 
-    fig_sweep = px.line(
-        sweep, x="Price", y=["X1_Margin", "X2_Margin"],
-        template="plotly_white",
-        title=f"Gross Margin % vs Selling Price (Los Angeles, mat. index {mat_index})",
-        labels={"Price": "Selling Price ($)", "value": "Gross Margin (%)", "variable": "Brand"},
-        color_discrete_map={"X1_Margin": "#1f77b4", "X2_Margin": "#ff7f0e"},
-    )
-    fig_sweep.add_vline(x=WH_PRICE_CEIL["Los Angeles"], line_dash="dot", line_color="#1f77b4",
-                        annotation_text="WH ceiling", annotation_position="top right")
-    fig_sweep.add_vline(x=T_PRICE_CEIL["Los Angeles"],  line_dash="dot", line_color="#ff7f0e",
-                        annotation_text="Traveler ceiling", annotation_position="top right")
-    fig_sweep.add_hline(y=20, line_dash="dash", line_color="gray",
-                        annotation_text="20% margin floor", annotation_position="right")
-    fig_sweep.add_hline(y=0, line_color="red", line_width=1)
-    st.plotly_chart(fig_sweep, use_container_width=True)
+        # Component specs expander
+        with st.expander("📋 Component specifications — X1 and X2"):
+            sc1, sc2 = st.columns(2)
+            with sc1:
+                st.markdown("**X1 — Desktop (Workhorse)**")
+                for k, v in X1_COMPONENTS.items(): st.write(f"• {k}: {v}")
+            with sc2:
+                st.markdown("**X2 — Laptop (Traveler)**")
+                for k, v in X2_COMPONENTS.items(): st.write(f"• {k}: {v}")
 
-    # ── Section 6: Changeover cost reminder ──────────────────────────────────
-    st.markdown("---")
-    st.subheader("Changeover Cost — X1 vs X2 Differences")
-    st.caption("Components that differ between X1 and X2 will require a changeover if you switch production. Costs apply per component changed.")
+    # ═══════════════════════════════════════════════════════════════════════════
+    with tab_q2:
+        st.caption("Q2 estimates based on component-level cost guesses — superseded by real Q3 data above")
+        st.sidebar.markdown("---")
+        st.sidebar.subheader("Q2 Archive — Component Cost Estimates")
+        x1_costs = {
+            "Essentials": 320, "Case (desktop)": 55, "Cloud Storage": 30,
+            "Hard Drive (HC)": 80, "Office Software": 90, "Database SW": 60,
+            "Security Suite": 50, 'Monitor 19"': 120, "Computing Power": 150,
+            "Keyboard & Mouse": 30, "Auto Backup": 40, "Networking": 30, "OS Professional": 80,
+        }
+        x2_costs = {
+            "Essentials": 320, "Case (laptop)": 80, "Cloud Storage": 30,
+            "Hard Drive (Std)": 40, "Office Software": 90, "Presentation SW": 40,
+            "Security Suite": 50, 'Monitor 14"': 90, "Computing Power": 150,
+            "Keyboard & Mouse": 30, "Auto Backup": 40, "Networking": 30,
+            "Battery": 60, "OS Professional": 80,
+        }
+        x1_mfg = round(sum(x1_costs.values()) * 0.99)
+        x2_mfg = round(sum(x2_costs.values()) * 0.99)
+        avg_wh = sum({"Los Angeles":3333.72,"Toronto":3345.69,"Chicago":3112.08,"Mexico City":3234.20}.values())/4
+        avg_t  = sum({"Los Angeles":3470.40,"Toronto":3592.28,"Chicago":3706.02,"Mexico City":3763.82}.values())/4
 
-    changeover_costs = {
-        "Case":             (1000, "X1: desktop / X2: laptop"),
-        "Hard Drive":       (450,  "X1: high capacity / X2: standard"),
-        "Other Software":   (1000, "X1: database / X2: presentation"),
-        "Monitor":          (800,  "X1: 19\" desktop / X2: 14\" laptop"),
-        "Battery":          (500,  "X2 only — not in X1"),
-    }
-    diff_df = pd.DataFrame([
-        dict(Component=k, Changeover_Cost=v, Note=n)
-        for k, (v, n) in changeover_costs.items()
-    ])
-    total_changeover = diff_df["Changeover_Cost"].sum()
-    st.dataframe(diff_df.rename(columns={"Changeover_Cost": "Cost ($)"}),
-                 use_container_width=True, hide_index=True)
-    st.warning(f"Switching between X1 and X2 production would cost **${total_changeover:,}** in changeover fees. "
-               "Design both brands in Q2 to avoid future penalties.")
+        col1, col2 = st.columns(2)
+        for col, name, mfg, ceil in [(col1,"X1",x1_mfg,avg_wh),(col2,"X2",x2_mfg,avg_t)]:
+            with col:
+                st.markdown(f"**{name}** — est. mfg cost: ${mfg:,} | avg ceiling: ${ceil:,.0f} | est. max margin: {(ceil-mfg)/ceil*100:.0f}%")
+
+        comp_rows = []
+        for k in sorted(set(list(x1_costs)+list(x2_costs))):
+            comp_rows.append(dict(Component=k, X1=x1_costs.get(k,0), X2=x2_costs.get(k,0)))
+        fig_arch = px.bar(pd.DataFrame(comp_rows).melt(id_vars="Component",value_vars=["X1","X2"],
+                          var_name="Brand",value_name="Cost").query("Cost>0"),
+                          x="Component", y="Cost", color="Brand", barmode="group",
+                          color_discrete_map={"X1":"#1f77b4","X2":"#ff7f0e"},
+                          template="plotly_white", title="Q2 Estimated Component Costs", text_auto="$,d")
+        fig_arch.update_layout(xaxis_tickangle=-35, height=350)
+        st.plotly_chart(fig_arch, use_container_width=True)
+        st.warning("⚠️ These are estimates — switch to the Q3 tab for real simulation costs.")
 
 
 def page_manufacturing():
     st.header("Manufacturing — Factory & Production Planning")
-    st.caption("Q2 research data · all costs from FactoryLocation / FixedCapacity / ComponentChangeover exports")
+
+    tab_q3, tab_q2 = st.tabs(["🔵 Q3 — Operating Capacity & Production Rules", "🗂 Q2 — Archive"])
+
+    with tab_q3:
+        st.caption("OperatingCapacity-Q3 · TargetReplenishPoint-Q3 · ProductionRules-Q3 confirmed")
+
+        # ── Confirmed Q3 state ────────────────────────────────────────────────
+        st.subheader("Current Factory State (Q3)")
+        f1, f2, f3, f4 = st.columns(4)
+        f1.metric("Fixed Capacity", "25 units/day", "1,625 units/quarter")
+        f2.metric("Offices Open", "LA + Toronto", "NORAM")
+        f3.metric("Factory Location", "Mexico City", "Material index 99")
+        f4.metric("Production Rules", "6A + 8D", "Confirmed ✅")
+
+        # ── Sidebar ───────────────────────────────────────────────────────────
+        st.sidebar.markdown("---")
+        st.sidebar.subheader("Q3 Production Planning")
+        op_cap = st.sidebar.slider("Operating capacity (% of fixed)", 0, 100, 80,
+                                    help="What % of the 1,625/qtr fixed capacity to activate as operating capacity")
+        units_x1 = st.sidebar.number_input("X1 target inventory", 0, 1625, 200, step=25, key="mfg_x1")
+        units_x2 = st.sidebar.number_input("X2 target inventory", 0, 1625, 200, step=25, key="mfg_x2")
+        replen_x1 = st.sidebar.number_input("X1 replenishment point", 0, 500, 50, step=10, key="mfg_r1",
+                                             help="When inventory drops below this, start producing X1")
+        replen_x2 = st.sidebar.number_input("X2 replenishment point", 0, 500, 50, step=10, key="mfg_r2",
+                                             help="When inventory drops below this, start producing X2")
+
+        op_units = int(1625 * op_cap / 100)
+        idle     = 1625 - op_units
+        idle_cost = idle * 500
+
+        # ── Operating capacity ────────────────────────────────────────────────
+        st.subheader("Operating Capacity Decision")
+        o1, o2, o3 = st.columns(3)
+        o1.metric("Activated capacity", f"{op_units} units/qtr", f"{op_cap}% of fixed")
+        o2.metric("Idle units (penalty)", f"{idle}", f"-${idle_cost:,} idle cost", delta_color="inverse")
+        o3.metric("Labour + overhead cost (new)", "→ set in simulation", help="OperatingCapacity-Q3 shows $0 — fill once sim updates")
+
+        fig_util = go.Figure(go.Indicator(
+            mode="gauge+number", value=op_cap,
+            title={"text": "Capacity Utilisation (%)"},
+            gauge={"axis":{"range":[0,100]},
+                   "bar":{"color":"#1f77b4"},
+                   "steps":[{"range":[0,50],"color":"#d62728"},
+                             {"range":[50,75],"color":"#ff7f0e"},
+                             {"range":[75,100],"color":"#2ca02c"}],
+                   "threshold":{"line":{"color":"black","width":2},"thickness":0.75,"value":op_cap}}
+        ))
+        fig_util.update_layout(height=250)
+        st.plotly_chart(fig_util, use_container_width=True)
+
+        # ── Inventory targets ─────────────────────────────────────────────────
+        st.subheader("Target & Replenishment Points")
+        st.caption("Target = max inventory to hold · Replenishment = minimum before factory restarts that brand")
+        inv_data = pd.DataFrame([
+            dict(Brand="X1", Target=units_x1, Replenishment=replen_x1),
+            dict(Brand="X2", Target=units_x2, Replenishment=replen_x2),
+        ])
+        fig_inv = px.bar(inv_data.melt(id_vars="Brand", var_name="Type", value_name="Units"),
+                         x="Brand", y="Units", color="Type", barmode="group",
+                         color_discrete_map={"Target":"#1f77b4","Replenishment":"#ff7f0e"},
+                         template="plotly_white", title="Inventory Target vs Replenishment Points",
+                         text_auto="d")
+        st.plotly_chart(fig_inv, use_container_width=True)
+        st.info("Rule of thumb: set Target = expected quarterly sales × 1.2 · Replenishment = expected sales per 2 weeks")
+
+        # ── Production rules confirmed ────────────────────────────────────────
+        st.subheader("Production Rules (Confirmed)")
+        st.markdown("""
+| Priority | Rule | Status |
+|---|---|---|
+| 6A | If multiple brands below replenish point → produce brand with **lowest inventory relative to demand (last 5 days)** | ✅ Selected |
+| 8D | If current brand above target and another is below → **stop production** | ✅ Selected |
+""")
+
+        # ── Changeover reference ──────────────────────────────────────────────
+        with st.expander("📋 Component Changeover Reference (X1 ↔ X2)"):
+            st.dataframe(pd.DataFrame([
+                dict(Component="Case",           Hours=5, Cost=1000, Difference="Desktop vs Laptop"),
+                dict(Component="Hard Drive",     Hours=2, Cost=450,  Difference="High cap vs Standard"),
+                dict(Component="Other Software", Hours=1, Cost=1000, Difference="Database vs Presentation"),
+                dict(Component="Monitor",        Hours=5, Cost=800,  Difference='19" desktop vs 14" laptop'),
+                dict(Component="Battery",        Hours=1, Cost=500,  Difference="Not in X1 / Added for X2"),
+            ]), use_container_width=True, hide_index=True)
+            st.warning("Total changeover cost X1↔X2: **$3,750** + 14 hours downtime")
+
+    with tab_q2:
+        st.caption("Q2 manufacturing research — factory selection, capacity options, component costs")
+
 
     # ── Raw data ──────────────────────────────────────────────────────────────
     factory_locations = pd.DataFrame([
@@ -608,14 +704,113 @@ def page_manufacturing():
 
 def page_marketing():
     st.header("Marketing — Segment Strategy")
-    st.caption("Why Workhorse + Traveler · Q2 research data")
 
-    SEGMENTS = ["Costcutter", "Innovator", "Mercedes", "Workhorse", "Traveler"]
-    CHOSEN    = ["Workhorse", "Traveler"]
-    COLORS    = {
-        "Costcutter": "#aec7e8", "Innovator": "#ffbb78",
-        "Mercedes": "#98df8a",   "Workhorse": "#1f77b4", "Traveler": "#ff7f0e",
-    }
+    tab_q3, tab_q2 = st.tabs(["🔵 Q3 — Advertising & Sales Force", "🗂 Q2 — Segment Rationale Archive"])
+
+    with tab_q3:
+        st.caption("Media preferences from MediaPreference-Q3.xlsx · sales force from HireSalesPeople-Q3.xlsx")
+
+        # ── Media preferences data ────────────────────────────────────────────
+        media = pd.DataFrame([
+            dict(Media="Business Newspapers",      Costcutter=72,  Innovator=50,  Mercedes=122, Workhorse=114, Traveler=68),
+            dict(Media="General Business Magazine", Costcutter=109, Innovator=72,  Mercedes=94,  Workhorse=127, Traveler=103),
+            dict(Media="Computer Magazines",        Costcutter=10,  Innovator=130, Mercedes=113, Workhorse=31,  Traveler=20),
+            dict(Media="General News Magazines",    Costcutter=92,  Innovator=48,  Mercedes=139, Workhorse=101, Traveler=104),
+            dict(Media="Leading Trade Journals",    Costcutter=126, Innovator=77,  Mercedes=70,  Workhorse=116, Traveler=123),
+            dict(Media="New Venture Magazines",     Costcutter=107, Innovator=148, Mercedes=29,  Workhorse=52,  Traveler=125),
+            dict(Media="Sports Magazines",          Costcutter=140, Innovator=31,  Mercedes=61,  Workhorse=120, Traveler=112),
+            dict(Media="Executive Business Mags",   Costcutter=10,  Innovator=31,  Mercedes=90,  Workhorse=83,  Traveler=29),
+            dict(Media="Science & Technology",      Costcutter=32,  Innovator=109, Mercedes=124, Workhorse=29,  Traveler=10),
+            dict(Media="Daily Newspaper",           Costcutter=83,  Innovator=41,  Mercedes=59,  Workhorse=88,  Traveler=59),
+            dict(Media="Leisure & Entertainment",   Costcutter=83,  Innovator=22,  Mercedes=38,  Workhorse=82,  Traveler=72),
+        ])
+
+        # ── Sidebar ───────────────────────────────────────────────────────────
+        st.sidebar.markdown("---")
+        st.sidebar.subheader("Q3 Advertising")
+        total_ad_budget = st.sidebar.number_input("Total advertising budget ($)", 0, 1_000_000, 100_000, step=25_000, key="mkt_ad")
+        sales_la  = st.sidebar.number_input("Sales people — LA",      0, 20, 2, key="mkt_sla")
+        sales_tor = st.sidebar.number_input("Sales people — Toronto",  0, 20, 2, key="mkt_stor")
+
+        # ── Media preference heatmap ──────────────────────────────────────────
+        st.subheader("Media Preferences by Segment")
+        heat_df = media.set_index("Media")[["Workhorse","Traveler","Costcutter","Innovator","Mercedes"]]
+        fig_heat = px.imshow(heat_df, aspect="auto", color_continuous_scale="Blues",
+                             template="plotly_white",
+                             title="Media Preference Score (higher = segment reads this more)")
+        fig_heat.update_xaxes(tickangle=0)
+        st.plotly_chart(fig_heat, use_container_width=True)
+
+        # ── Best channels for WH + Traveler ──────────────────────────────────
+        st.subheader("Best Channels for Workhorse + Traveler")
+        combined = media.copy()
+        combined["WH_T_Combined"] = combined["Workhorse"] + combined["Traveler"]
+        combined["WH_T_Avg"] = combined["WH_T_Combined"] / 2
+        combined = combined.sort_values("WH_T_Avg", ascending=True)
+
+        fig_ch = px.bar(combined, x="WH_T_Avg", y="Media", orientation="h",
+                        color="WH_T_Avg", color_continuous_scale="Blues",
+                        template="plotly_white",
+                        title="Average Media Preference Score — Workhorse + Traveler combined",
+                        labels={"WH_T_Avg":"Avg score (WH+T/2)","Media":"Channel"},
+                        text_auto=".0f")
+        fig_ch.update_coloraxes(showscale=False)
+        st.plotly_chart(fig_ch, use_container_width=True)
+
+        top3 = combined.nlargest(3, "WH_T_Avg")["Media"].tolist()
+        st.success(f"**Top 3 channels for your segments:** {', '.join(top3)}")
+        st.caption("Allocate the majority of your advertising budget to these channels for maximum reach.")
+
+        # ── Advertising allocation ────────────────────────────────────────────
+        st.markdown("---")
+        st.subheader("Advertising Budget Allocation")
+        if total_ad_budget > 0:
+            top5 = combined.nlargest(5,"WH_T_Avg").reset_index(drop=True)
+            top5["Score_Share"] = top5["WH_T_Avg"] / top5["WH_T_Avg"].sum()
+            top5["Suggested_Budget"] = (top5["Score_Share"] * total_ad_budget).round(-2)
+            fig_alloc = px.pie(top5, names="Media", values="Suggested_Budget",
+                               template="plotly_white",
+                               title=f"Suggested allocation of ${total_ad_budget:,} across top 5 channels")
+            st.plotly_chart(fig_alloc, use_container_width=True)
+            st.dataframe(top5[["Media","WH_T_Avg","Suggested_Budget"]].rename(columns={
+                "WH_T_Avg":"Score","Suggested_Budget":"Budget ($)"}),
+                use_container_width=True, hide_index=True)
+
+        # ── Sales force ───────────────────────────────────────────────────────
+        st.markdown("---")
+        st.subheader("Sales Force")
+        sf_la_cost  = sales_la  * 90_000 / 4
+        sf_tor_cost = sales_tor * 80_000 / 4
+        sf_total    = sf_la_cost + sf_tor_cost
+
+        sf1, sf2, sf3 = st.columns(3)
+        sf1.metric("LA sales people", f"{sales_la}", f"${sf_la_cost:,.0f}/qtr")
+        sf2.metric("Toronto sales people", f"{sales_tor}", f"${sf_tor_cost:,.0f}/qtr")
+        sf3.metric("Total sales force cost", f"${sf_total:,.0f}/qtr", f"${sf_total*4:,.0f}/yr")
+
+        st.caption("In Q3 (first selling quarter), sales people drive brand awareness and accessibility. "
+                   "LA salary = $90K/yr, Toronto = $80K/yr. Start with 2-3 per city to generate initial demand.")
+
+        # ── Market research ───────────────────────────────────────────────────
+        st.markdown("---")
+        st.subheader("Market Research — Q3 Options")
+        st.dataframe(pd.DataFrame([
+            dict(Region="NORAM",  Cost=23_000, Recommended="✅ Buy — your active market"),
+            dict(Region="EUROPE", Cost=23_000, Recommended="Consider — if planning Q4 expansion"),
+            dict(Region="MEA",    Cost=23_000, Recommended="⬜ Skip for now"),
+            dict(Region="LATAM",  Cost=23_000, Recommended="⬜ Skip for now"),
+            dict(Region="APAC",   Cost=23_000, Recommended="⬜ Skip for now"),
+        ]), use_container_width=True, hide_index=True)
+
+    with tab_q2:
+        st.caption("Q2 segment selection rationale — read-only archive")
+        SEGMENTS = ["Costcutter", "Innovator", "Mercedes", "Workhorse", "Traveler"]
+        CHOSEN    = ["Workhorse", "Traveler"]
+        COLORS    = {
+            "Costcutter": "#aec7e8", "Innovator": "#ffbb78",
+            "Mercedes": "#98df8a",   "Workhorse": "#1f77b4", "Traveler": "#ff7f0e",
+        }
+
 
     # ── Raw data ──────────────────────────────────────────────────────────────
     demand_raw = {
@@ -850,253 +1045,252 @@ def page_marketing():
 
 
 def page_finance():
-    st.header("Finance — Q1 Actuals + Q2 Forecast")
-    st.caption("Q1 data sourced from simulation exports · Q2 figures are planning inputs")
+    st.header("Finance")
 
-    # ── Q1 Actuals (hardcoded from BalanceSheet/IncomeStatement/CashFlow/CD Q1) ──
-    Q1 = dict(
-        cash=912_000,
-        cd_balance=0,
-        inventory=0,
-        net_fixed_assets=0,
-        sinking_fund=0,
-        total_assets=912_000,
-        conventional_loan=0,
-        long_term_loan=0,
-        emergency_loan=0,
-        common_stock=1_000_000,
-        retained_earnings=-88_000,
-        total_equity=912_000,
-        revenues=0,
-        cogs=0,
-        gross_profit=0,
-        market_research_expense=88_000,
-        total_expenses=88_000,
-        net_income=-88_000,
-        eps=-8.80,
-        shares_outstanding=10_000,
-        cd_rate_pct=1.5,
-    )
+    tab_q3, tab_q2 = st.tabs(["🔵 Q3 — Current (First Selling Quarter)", "🗂 Q2 — Archive"])
 
-    # ── Sidebar Q2 planning inputs ────────────────────────────────────────────
-    st.sidebar.markdown("---")
-    st.sidebar.subheader("Q2 Financial Planning")
+    # ═══════════════════════════════════════════════════════════════════════════
+    # Q3 — CURRENT
+    # ═══════════════════════════════════════════════════════════════════════════
+    with tab_q3:
+        st.caption("Q2 results confirmed from Pro Forma Cash Flow · Q3 is the first production + selling quarter")
 
-    q2_stock_proceeds = st.sidebar.number_input(
-        "Stock proceeds Q2 ($)", 0, 5_000_000, 1_000_000, step=100_000,
-        help="Stock-Q2 shows 10,000 shares @ $100 already decided = $1,000,000"
-    )
-    q2_revenue = st.sidebar.number_input(
-        "Expected Q2 revenue ($)", 0, 20_000_000, 0, step=100_000,
-        help="Set once you've decided pricing and production volume"
-    )
-    q2_cogs_pct = st.sidebar.slider("COGS as % of revenue", 50, 90, 75)
-    q2_market_research = st.sidebar.number_input("Market research ($)", 0, 500_000, 88_000, step=1_000)
-    q2_advertising = st.sidebar.number_input("Advertising ($)", 0, 2_000_000, 0, step=50_000)
-    q2_rd = st.sidebar.number_input("R&D ($)", 0, 1_000_000, 0, step=50_000)
-    q2_sales_force = st.sidebar.number_input("Sales force expense ($)", 0, 500_000, 0, step=10_000)
-
-    factory_options = {
-        "None — no new capacity ($0)": 0,
-        "25 units/day — 1,625 units/qtr ($600K)": 600_000,
-        "50 units/day — 3,250 units/qtr ($1.1M)": 1_100_000,
-        "100 units/day — 6,500 units/qtr ($2.2M)": 2_200_000,
-        "150 units/day — 9,750 units/qtr ($3.6M)": 3_600_000,
-    }
-    factory_choice = st.sidebar.selectbox("Factory capacity investment", list(factory_options.keys()))
-    q2_factory_capex = factory_options[factory_choice]
-
-    office_options = {
-        "None": 0,
-        "LA only ($180K setup + $80K lease)": 260_000,
-        "Toronto only ($160K setup + $70K lease)": 230_000,
-        "LA + Toronto ($340K setup + $150K lease)": 490_000,
-        "LA + Chicago ($350K setup + $154K lease)": 504_000,
-        "Paris + London ($350K setup + $151K lease)": 501_000,
-        "Custom — enter below": -1,
-    }
-    office_choice = st.sidebar.selectbox("Office openings", list(office_options.keys()))
-    if office_options[office_choice] == -1:
-        q2_office_cost = st.sidebar.number_input("Custom office cost ($)", 0, 2_000_000, 0, step=10_000)
-    else:
-        q2_office_cost = office_options[office_choice]
-
-    q2_cd_deposit = st.sidebar.number_input(
-        "Invest in CD ($)", 0, 900_000, 0, step=50_000,
-        help=f"Earns {Q1['cd_rate_pct']}%/quarter. Must leave enough operating cash."
-    )
-    q2_borrow_lt = st.sidebar.number_input("Borrow long-term loan ($)", 0, 5_000_000, 0, step=100_000)
-
-    # ── Q2 Calculations ───────────────────────────────────────────────────────
-    q2_gross_profit = q2_revenue * (1 - q2_cogs_pct / 100)
-    q2_operating_expenses = (
-        q2_market_research + q2_advertising + q2_rd + q2_sales_force + q2_office_cost
-    )
-    q2_ebit = q2_gross_profit - q2_operating_expenses
-    q2_net_income = q2_ebit  # no taxes in early quarters (loss carry forward)
-    q2_cd_interest = q2_cd_deposit * (Q1["cd_rate_pct"] / 100)
-
-    cash_start = Q1["cash"]
-    cash_end = (
-        cash_start
-        + q2_stock_proceeds
-        + q2_revenue
-        - (q2_revenue * q2_cogs_pct / 100)
-        - q2_operating_expenses
-        - q2_factory_capex
-        - q2_cd_deposit
-        + q2_borrow_lt
-        + q2_cd_interest
-    )
-
-    q2_total_equity = Q1["common_stock"] + q2_stock_proceeds + Q1["retained_earnings"] + q2_net_income
-    q2_total_debt = Q1["conventional_loan"] + Q1["long_term_loan"] + q2_borrow_lt
-    debt_to_equity = q2_total_debt / q2_total_equity if q2_total_equity > 0 else float("inf")
-    emergency_loan_risk = cash_end < 0
-
-    # ── KPI Cards — Q1 Actuals ────────────────────────────────────────────────
-    st.subheader("Q1 Actuals")
-    c1, c2, c3, c4, c5 = st.columns(5)
-    c1.metric("Cash", f"${Q1['cash']:,.0f}")
-    c2.metric("Total Equity", f"${Q1['total_equity']:,.0f}")
-    c3.metric("Debt", f"${Q1['conventional_loan'] + Q1['long_term_loan']:,.0f}")
-    c4.metric("Net Income", f"${Q1['net_income']:,.0f}")
-    c5.metric("EPS", f"${Q1['eps']:.2f}")
-
-    c6, c7, c8, c9, c10 = st.columns(5)
-    c6.metric("Revenue", f"${Q1['revenues']:,.0f}")
-    c7.metric("Market Research", f"${Q1['market_research_expense']:,.0f}")
-    c8.metric("Shares Outstanding", f"{Q1['shares_outstanding']:,}")
-    c9.metric("CD Balance", f"${Q1['cd_balance']:,.0f}")
-    c10.metric("CD Rate", f"{Q1['cd_rate_pct']}% / qtr")
-
-    # ── Q2 Projected Cash Waterfall ───────────────────────────────────────────
-    st.markdown("---")
-    st.subheader("Q2 Cash Flow Projection")
-
-    waterfall_items = [
-        ("Q1 Cash",              cash_start,       "absolute"),
-        ("+ Stock proceeds",     q2_stock_proceeds,"relative"),
-        ("+ Revenue",            q2_revenue,       "relative"),
-        ("- COGS",               -(q2_revenue * q2_cogs_pct / 100), "relative"),
-        ("- Operating expenses", -q2_operating_expenses, "relative"),
-        ("- Factory CapEx",      -q2_factory_capex, "relative"),
-        ("- CD deposit",         -q2_cd_deposit,   "relative"),
-        ("+ Loans borrowed",     q2_borrow_lt,     "relative"),
-        ("+ CD interest",        q2_cd_interest,   "relative"),
-        ("Q2 Ending Cash",       cash_end,         "total"),
-    ]
-
-    wf_labels  = [r[0] for r in waterfall_items]
-    wf_values  = [r[1] for r in waterfall_items]
-    wf_measure = [r[2] for r in waterfall_items]
-    wf_colors  = ["#d62728" if v < 0 else "#2ca02c" for v in wf_values]
-    wf_colors[0]  = "#1f77b4"   # Q1 Cash — neutral
-    wf_colors[-1] = "#ff7f0e" if cash_end < 0 else "#1f77b4"  # ending cash
-
-    fig_wf = go.Figure(go.Waterfall(
-        orientation="v",
-        measure=wf_measure,
-        x=wf_labels,
-        y=wf_values,
-        connector=dict(line=dict(color="gray", dash="dot")),
-        increasing=dict(marker_color="#2ca02c"),
-        decreasing=dict(marker_color="#d62728"),
-        totals=dict(marker_color="#1f77b4"),
-        texttemplate="%{y:$,.0f}",
-        textposition="outside",
-    ))
-    fig_wf.add_hline(y=0, line_color="black", line_width=1)
-    fig_wf.update_layout(
-        template="plotly_white",
-        title="Q2 Cash Waterfall",
-        yaxis_title="$",
-        height=420,
-        showlegend=False,
-    )
-    st.plotly_chart(fig_wf, use_container_width=True)
-
-    # ── Q2 Ending KPIs ────────────────────────────────────────────────────────
-    st.subheader("Q2 Projected Outcome")
-    d1, d2, d3, d4, d5 = st.columns(5)
-    d1.metric("Projected Cash", f"${cash_end:,.0f}",
-              delta=f"{cash_end - cash_start:,.0f} vs Q1",
-              delta_color="normal")
-    d2.metric("Projected Net Income", f"${q2_net_income:,.0f}")
-    d3.metric("Projected Total Equity", f"${q2_total_equity:,.0f}")
-    d4.metric("Debt / Equity", f"{debt_to_equity:.2f}")
-    d5.metric("CD Interest earned", f"${q2_cd_interest:,.0f}")
-
-    if emergency_loan_risk:
-        st.error(
-            f"Emergency loan risk — projected cash is **${cash_end:,.0f}**. "
-            "Reduce spending or borrow before submitting Q2 decisions."
+        # ── Confirmed actuals (from ProFormaCashFlow-Q3.xlsx) ────────────────
+        Q2_ACTUAL = dict(
+            cash_start=912_000, cash_end=655_000,
+            rd=120_000, office_setup=340_000,
+            stock_proceeds=1_000_000, factory_capex=600_000,
+            cd_deposited=200_000, cd_interest_earned=3_000,
+            net_op_cf=-457_000, net_investing=-600_000, net_financing=800_000,
         )
-    elif cash_end < 200_000:
-        st.warning(
-            f"Low cash buffer — **${cash_end:,.0f}** projected. "
-            "Consider borrowing a conventional loan or reducing CapEx."
-        )
-    else:
-        st.success(f"Cash position looks healthy: **${cash_end:,.0f}** projected at end of Q2.")
+        CD_BALANCE = 200_000
+        CD_RATE    = 1.5   # % per quarter
+        CD_INTEREST_Q3 = CD_BALANCE * CD_RATE / 100  # $3,000
 
-    # ── CD Opportunity Analysis ───────────────────────────────────────────────
-    st.markdown("---")
-    st.subheader("Certificate of Deposit Opportunity")
-    st.caption(f"CD rate: {Q1['cd_rate_pct']}% per quarter (locked for 3 months)")
+        # ── Confirmed Q2 KPIs ────────────────────────────────────────────────
+        st.subheader("Confirmed Q2 Actuals")
+        a1, a2, a3, a4, a5 = st.columns(5)
+        a1.metric("Q2 Ending Cash", "$655,000", delta="-$257,000 vs Q1")
+        a2.metric("CD Balance (locked)", "$200,000", delta="+$3,000 interest")
+        a3.metric("Factory built", "25 u/day · 1,625/qtr")
+        a4.metric("Offices opened", "LA + Toronto")
+        a5.metric("R&D invested", "$120,000")
 
-    cd_amounts = [0, 50_000, 100_000, 200_000, 300_000, 400_000, 500_000]
-    cd_rows = []
-    for amt in cd_amounts:
-        interest = amt * Q1["cd_rate_pct"] / 100
-        residual_cash = cash_start + q2_stock_proceeds - q2_operating_expenses - q2_factory_capex - q2_office_cost - amt
-        cd_rows.append(dict(CD_Deposit=amt, Interest_Earned=interest,
-                            Residual_Cash=residual_cash, Safe=residual_cash > 0))
-    cd_df = pd.DataFrame(cd_rows)
+        st.markdown("---")
 
-    fig_cd = px.bar(
-        cd_df, x="CD_Deposit", y="Interest_Earned",
-        color="Safe",
-        color_discrete_map={True: "#2ca02c", False: "#d62728"},
-        template="plotly_white",
-        title="CD Interest Earned vs. Amount Deposited (red = cash goes negative)",
-        labels={"CD_Deposit": "CD Deposit ($)", "Interest_Earned": "Interest Earned ($)", "Safe": "Cash positive?"},
-        text_auto="$,.0f",
-    )
-    st.plotly_chart(fig_cd, use_container_width=True)
+        # ── Sidebar Q3 controls ───────────────────────────────────────────────
+        st.sidebar.markdown("---")
+        st.sidebar.subheader("Q3 Planning")
 
-    # ── Payment to Business Partners ─────────────────────────────────────────
-    st.markdown("---")
-    st.subheader("Payment to Business Partners (Q1)")
-    partners = pd.DataFrame([
-        dict(Company="Apex Systems",        Amount=0),
-        dict(Company="AM2 Computers",       Amount=0),
-        dict(Company="Apex Global Systems", Amount=0),
-        dict(Company="KOVA",                Amount=0),
-    ])
-    st.dataframe(partners, use_container_width=True, height=180)
-    st.caption("All partner payments are $0 in Q1. Update when Q2 licensing decisions are made.")
+        withdraw_cd = st.sidebar.checkbox("Withdraw CD in Q3?", value=True,
+            help="Returns $203,000 ($200K principal + $3K interest)")
+        q3_units_x1 = st.sidebar.number_input("Units to produce — X1", 0, 1625, 250, step=25)
+        q3_units_x2 = st.sidebar.number_input("Units to produce — X2", 0, 1625, 250, step=25)
+        q3_price_x1 = st.sidebar.number_input("Selling price X1 ($)", 1000, 4000, 2750, step=50)
+        q3_price_x2 = st.sidebar.number_input("Selling price X2 ($)", 1000, 4500, 3100, step=50)
+        sales_people_la  = st.sidebar.number_input("Sales people — LA ($90K/yr ea.)",  0, 20, 2)
+        sales_people_tor = st.sidebar.number_input("Sales people — Toronto ($80K/yr ea.)", 0, 20, 2)
+        q3_advertising   = st.sidebar.number_input("Advertising budget ($)", 0, 1_000_000, 100_000, step=25_000)
+        q3_mkt_research  = st.sidebar.number_input("Market research ($23K/region × regions)", 0, 115_000, 0, step=23_000)
+        q3_borrow_lt     = st.sidebar.number_input("Borrow long-term loan ($)", 0, 3_000_000, 0, step=100_000)
 
-    # ── Planned Q2 outflows summary ───────────────────────────────────────────
-    st.markdown("---")
-    st.subheader("Q2 Planned Outflows Summary")
-    outflows = pd.DataFrame([
-        dict(Item="Market Research",      Amount=q2_market_research,     Type="Operating"),
-        dict(Item="Advertising",          Amount=q2_advertising,          Type="Operating"),
-        dict(Item="R&D",                  Amount=q2_rd,                   Type="Operating"),
-        dict(Item="Sales Force",          Amount=q2_sales_force,          Type="Operating"),
-        dict(Item="Office Costs",         Amount=q2_office_cost,          Type="Operating"),
-        dict(Item="Factory CapEx",        Amount=q2_factory_capex,        Type="Investing"),
-        dict(Item="CD Deposit",           Amount=q2_cd_deposit,           Type="Financing"),
-        dict(Item="COGS",                 Amount=int(q2_revenue * q2_cogs_pct / 100), Type="Operating"),
-    ])
-    outflows = outflows[outflows["Amount"] > 0]
-    if not outflows.empty:
-        fig_out = px.pie(outflows, names="Item", values="Amount", color="Type",
-                         template="plotly_white", title="Q2 Spend Breakdown")
-        st.plotly_chart(fig_out, use_container_width=True)
-    else:
-        st.info("Adjust the sidebar inputs to model Q2 spending.")
+        # ── Q3 Cost of production (real values from CostOfProduction-Q3.xlsx) ─
+        # Cost per unit at different volumes (interpolated for inputs between breakpoints)
+        COST_CURVE = {100: (4288.26, 4262.53), 250: (2849.10, 2823.40),
+                      500: (2129.89, 2104.23), 1000: (1768.94, 1743.36), 5000: (1471.50, 1446.57)}
+
+        def interp_cost(units, brand_idx):
+            pts = sorted(COST_CURVE.keys())
+            if units <= pts[0]:  return COST_CURVE[pts[0]][brand_idx]
+            if units >= pts[-1]: return COST_CURVE[pts[-1]][brand_idx]
+            for i in range(len(pts)-1):
+                if pts[i] <= units <= pts[i+1]:
+                    lo, hi = pts[i], pts[i+1]
+                    t = (units - lo) / (hi - lo)
+                    return COST_CURVE[lo][brand_idx] + t * (COST_CURVE[hi][brand_idx] - COST_CURVE[lo][brand_idx])
+            return COST_CURVE[pts[-1]][brand_idx]
+
+        total_units = q3_units_x1 + q3_units_x2
+        cost_x1 = interp_cost(q3_units_x1, 0) if q3_units_x1 > 0 else 0
+        cost_x2 = interp_cost(q3_units_x2, 1) if q3_units_x2 > 0 else 0
+        prod_cost_total = q3_units_x1 * cost_x1 + q3_units_x2 * cost_x2
+
+        revenue_x1 = q3_units_x1 * q3_price_x1
+        revenue_x2 = q3_units_x2 * q3_price_x2
+        q3_revenue = revenue_x1 + revenue_x2
+        q3_gross_profit = q3_revenue - prod_cost_total
+
+        sales_force_cost = (sales_people_la * 90_000 + sales_people_tor * 80_000) / 4
+        office_lease_q3  = 150_000  # LA $80K + Toronto $70K (confirmed open)
+        q3_total_opex    = office_lease_q3 + sales_force_cost + q3_advertising + q3_mkt_research
+        q3_ebit          = q3_gross_profit - q3_total_opex
+        q3_cd_income     = CD_INTEREST_Q3
+
+        cash_q3_start   = Q2_ACTUAL["cash_end"]
+        cd_cash_in      = (CD_BALANCE + CD_INTEREST_Q3) if withdraw_cd else 0
+        q3_ending_cash  = (cash_q3_start + cd_cash_in + q3_revenue - prod_cost_total
+                           - q3_total_opex + q3_borrow_lt)
+
+        idle_units  = max(0, 1625 - total_units)
+        idle_cost   = idle_units * 500
+
+        # ── Q3 KPI cards ─────────────────────────────────────────────────────
+        st.subheader("Q3 Projected Outcome")
+        k1, k2, k3, k4, k5 = st.columns(5)
+        k1.metric("Q3 Starting Cash", f"${cash_q3_start:,.0f}")
+        k2.metric("Revenue", f"${q3_revenue:,.0f}")
+        k3.metric("Gross Profit", f"${q3_gross_profit:,.0f}",
+                  delta=f"{q3_gross_profit/q3_revenue*100:.0f}% margin" if q3_revenue > 0 else "—")
+        k4.metric("EBIT", f"${q3_ebit:,.0f}")
+        k5.metric("Projected Ending Cash", f"${q3_ending_cash:,.0f}",
+                  delta=f"{q3_ending_cash - cash_q3_start:+,.0f}",
+                  delta_color="normal")
+
+        k6, k7, k8, k9, k10 = st.columns(5)
+        k6.metric("X1 cost/unit", f"${cost_x1:,.0f}" if q3_units_x1 > 0 else "—")
+        k7.metric("X2 cost/unit", f"${cost_x2:,.0f}" if q3_units_x2 > 0 else "—")
+        k8.metric("Idle capacity cost", f"${idle_cost:,.0f}", delta=f"{idle_units} idle units", delta_color="inverse")
+        k9.metric("Sales force cost/qtr", f"${sales_force_cost:,.0f}")
+        k10.metric("CD return", f"+${cd_cash_in:,.0f}" if withdraw_cd else "Still locked")
+
+        if q3_ending_cash < 0:
+            st.error(f"⚠️ Projected cash negative: **${q3_ending_cash:,.0f}**. Reduce production, cut advertising, or borrow.")
+        elif q3_ending_cash < 200_000:
+            st.warning(f"Low cash buffer: **${q3_ending_cash:,.0f}**. Consider withdrawing CD or trimming opex.")
+        else:
+            st.success(f"Cash looks healthy going into Q4: **${q3_ending_cash:,.0f}**")
+
+        # ── Q3 Cash waterfall ─────────────────────────────────────────────────
+        st.markdown("---")
+        st.subheader("Q3 Cash Flow Waterfall")
+        wf3 = [
+            ("Q3 Start",          cash_q3_start,        "absolute"),
+            ("+ CD withdrawal",   cd_cash_in,           "relative"),
+            ("+ Revenue",         q3_revenue,           "relative"),
+            ("- Production cost", -prod_cost_total,     "relative"),
+            ("- Office lease",    -office_lease_q3,     "relative"),
+            ("- Sales force",     -sales_force_cost,    "relative"),
+            ("- Advertising",     -q3_advertising,      "relative"),
+            ("- Mkt research",    -q3_mkt_research,     "relative"),
+            ("+ Loans",           q3_borrow_lt,         "relative"),
+            ("Q3 End",            q3_ending_cash,       "total"),
+        ]
+        fig_wf3 = go.Figure(go.Waterfall(
+            orientation="v", measure=[r[2] for r in wf3],
+            x=[r[0] for r in wf3], y=[r[1] for r in wf3],
+            connector=dict(line=dict(color="gray", dash="dot")),
+            increasing=dict(marker_color="#2ca02c"),
+            decreasing=dict(marker_color="#d62728"),
+            totals=dict(marker_color="#1f77b4"),
+            texttemplate="%{y:$,.0f}", textposition="outside",
+        ))
+        fig_wf3.add_hline(y=0, line_color="black", line_width=1)
+        fig_wf3.update_layout(template="plotly_white", title="Q3 Cash Waterfall",
+                              yaxis_title="$", height=400, showlegend=False)
+        st.plotly_chart(fig_wf3, use_container_width=True)
+
+        # ── Production cost curve ─────────────────────────────────────────────
+        st.markdown("---")
+        st.subheader("Real Production Cost Curve (from simulation)")
+        st.caption("Source: CostOfProduction-Q3.xlsx — costs drop sharply with volume due to overhead spreading")
+        curve_rows = []
+        for vol in [100, 150, 200, 250, 300, 400, 500, 750, 1000, 1250, 1625]:
+            curve_rows.append(dict(Units=vol, X1_Cost=interp_cost(vol,0), X2_Cost=interp_cost(vol,1)))
+        curve_df = pd.DataFrame(curve_rows)
+        fig_curve = px.line(curve_df, x="Units", y=["X1_Cost","X2_Cost"],
+                            template="plotly_white",
+                            title="Cost Per Unit vs Production Volume",
+                            labels={"Units":"Units/quarter","value":"Cost/unit ($)","variable":"Brand"},
+                            color_discrete_map={"X1_Cost":"#1f77b4","X2_Cost":"#ff7f0e"})
+        fig_curve.add_hline(y=q3_price_x1, line_dash="dot", line_color="#1f77b4",
+                            annotation_text=f"X1 price ${q3_price_x1:,}", annotation_position="right")
+        fig_curve.add_hline(y=q3_price_x2, line_dash="dot", line_color="#ff7f0e",
+                            annotation_text=f"X2 price ${q3_price_x2:,}", annotation_position="right")
+        if q3_units_x1 > 0:
+            fig_curve.add_vline(x=q3_units_x1, line_dash="dash", line_color="#1f77b4",
+                                annotation_text=f"X1 planned {q3_units_x1}u")
+        if q3_units_x2 > 0:
+            fig_curve.add_vline(x=q3_units_x2, line_dash="dash", line_color="#ff7f0e",
+                                annotation_text=f"X2 planned {q3_units_x2}u")
+        st.plotly_chart(fig_curve, use_container_width=True)
+
+        # ── Decisions checklist ───────────────────────────────────────────────
+        st.markdown("---")
+        st.subheader("Q3 Decisions Checklist")
+        decisions = [
+            ("Set X1 selling price",              q3_price_x1 > 0,  f"Current: ${q3_price_x1:,}"),
+            ("Set X2 selling price",              q3_price_x2 > 0,  f"Current: ${q3_price_x2:,}"),
+            ("Set production volume X1",          q3_units_x1 > 0,  f"{q3_units_x1} units"),
+            ("Set production volume X2",          q3_units_x2 > 0,  f"{q3_units_x2} units"),
+            ("Hire sales people — LA",            sales_people_la > 0,   f"{sales_people_la} people"),
+            ("Hire sales people — Toronto",       sales_people_tor > 0,  f"{sales_people_tor} people"),
+            ("Set advertising budget",            q3_advertising > 0,    f"${q3_advertising:,}"),
+            ("Withdraw or roll CD",               True,                   "Withdraw ✓" if withdraw_cd else "Rolling over"),
+            ("Set target/replenishment points",   False,                  "Not yet in dashboard"),
+            ("Set production rules",              True,                   "6A + 8D confirmed"),
+            ("Buy market research (optional)",    q3_mkt_research > 0,   f"${q3_mkt_research:,}"),
+        ]
+        for label, done, note in decisions:
+            icon = "✅" if done else "⬜"
+            st.markdown(f"{icon} **{label}** — {note}")
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # Q2 — ARCHIVE
+    # ═══════════════════════════════════════════════════════════════════════════
+    with tab_q2:
+        st.caption("Q2 was the setup quarter — no production or sales. Decisions confirmed.")
+
+        Q1 = dict(cash=912_000, cd_balance=0, total_assets=912_000,
+                  conventional_loan=0, long_term_loan=0,
+                  common_stock=1_000_000, retained_earnings=-88_000, total_equity=912_000,
+                  revenues=0, cogs=0, gross_profit=0, market_research_expense=88_000,
+                  total_expenses=88_000, net_income=-88_000, eps=-8.80,
+                  shares_outstanding=10_000, cd_rate_pct=1.5)
+
+        st.subheader("Q1 Actuals")
+        c1,c2,c3,c4,c5 = st.columns(5)
+        c1.metric("Cash", f"${Q1['cash']:,.0f}")
+        c2.metric("Total Equity", f"${Q1['total_equity']:,.0f}")
+        c3.metric("Debt", "$0")
+        c4.metric("Net Income", f"${Q1['net_income']:,.0f}")
+        c5.metric("EPS", f"${Q1['eps']:.2f}")
+
+        st.subheader("Q2 Confirmed Decisions & Actuals")
+        wf2 = [
+            ("Q1 Cash",          912_000,  "absolute"),
+            ("+ Stock Q2",     1_000_000,  "relative"),
+            ("- R&D",           -120_000,  "relative"),
+            ("- Office setup",  -340_000,  "relative"),
+            ("- Factory CapEx", -600_000,  "relative"),
+            ("- CD deposit",    -200_000,  "relative"),
+            ("+ CD interest",      3_000,  "relative"),
+            ("Q2 End",           655_000,  "total"),
+        ]
+        fig_wf2 = go.Figure(go.Waterfall(
+            orientation="v", measure=[r[2] for r in wf2],
+            x=[r[0] for r in wf2], y=[r[1] for r in wf2],
+            connector=dict(line=dict(color="gray", dash="dot")),
+            increasing=dict(marker_color="#2ca02c"),
+            decreasing=dict(marker_color="#d62728"),
+            totals=dict(marker_color="#1f77b4"),
+            texttemplate="%{y:$,.0f}", textposition="outside",
+        ))
+        fig_wf2.add_hline(y=0, line_color="black", line_width=1)
+        fig_wf2.update_layout(template="plotly_white", title="Q2 Confirmed Cash Flow",
+                              yaxis_title="$", height=380, showlegend=False)
+        st.plotly_chart(fig_wf2, use_container_width=True)
+
+        confirmed = pd.DataFrame([
+            dict(Decision="Stock issuance",         Amount="$1,000,000", Status="✅ Done"),
+            dict(Decision="R&D investment",          Amount="$120,000",   Status="✅ Done"),
+            dict(Decision="Factory (25 u/day)",      Amount="$600,000",   Status="✅ Done"),
+            dict(Decision="Open LA office (setup)",  Amount="$180,000",   Status="✅ Done"),
+            dict(Decision="Open Toronto (setup)",    Amount="$160,000",   Status="✅ Done"),
+            dict(Decision="CD deposit",              Amount="$200,000",   Status="✅ Done — returns Q3"),
+            dict(Decision="CD interest earned",      Amount="$3,000",     Status="✅ Credited"),
+            dict(Decision="Q2 Ending Cash",          Amount="$655,000",   Status="✅ Confirmed"),
+        ])
+        st.dataframe(confirmed, use_container_width=True, hide_index=True)
 
 
 def page_market_entry():
